@@ -58,6 +58,7 @@ public final class AuthPrompt {
     private static final class PromptState {
         long openedAt;
         boolean dialogOpen;
+        boolean submitting;
         long lastHintAt;
     }
 
@@ -75,6 +76,7 @@ public final class AuthPrompt {
         PromptState state = state(player.getUniqueId());
         state.openedAt = System.currentTimeMillis();
         state.dialogOpen = true;
+        state.submitting = false;
     }
 
     /**
@@ -85,6 +87,25 @@ public final class AuthPrompt {
         if (player == null) return;
         PromptState state = states.get(player.getUniqueId());
         if (state != null) state.dialogOpen = false;
+    }
+
+    /**
+     * Marks that the player submitted the login form and the password is being checked.
+     * Gameplay actions remain blocked, but the missing-dialog recovery must not reopen
+     * the form while the asynchronous authentication request is in flight.
+     */
+    public static void markSubmitting(Player player) {
+        if (player == null) return;
+        PromptState state = state(player.getUniqueId());
+        state.dialogOpen = false;
+        state.submitting = true;
+    }
+
+    /** Clears the in-flight marker when authentication must return to the login prompt. */
+    public static void finishSubmitting(Player player) {
+        if (player == null) return;
+        PromptState state = states.get(player.getUniqueId());
+        if (state != null) state.submitting = false;
     }
 
     /**
@@ -103,6 +124,10 @@ public final class AuthPrompt {
         if (isWaitingFor2FA(player)) return;
 
         PromptState state = states.get(player.getUniqueId());
+        // A closed dialog is expected while a submitted password is being checked.
+        // Do not misreport the client's post-submit input as a missing auth window.
+        if (state != null && state.submitting) return;
+
         long now = System.currentTimeMillis();
         long gap = (state != null && state.dialogOpen) ? OPEN_SCREEN_FALLBACK_MS : CLOSED_SCREEN_REOPEN_MS;
         if (state != null && now - state.openedAt < gap) {
@@ -129,7 +154,11 @@ public final class AuthPrompt {
     public static void openLater(Player player, long delayMs) {
         if (player == null) return;
         long ticks = Math.max(1L, delayMs / 50L);
-        Bukkit.getScheduler().runTaskLater(Main.getInstance(), () -> openNow(player), ticks);
+        Bukkit.getScheduler().runTaskLater(Main.getInstance(), () -> {
+            if (!player.isOnline()) return;
+            finishSubmitting(player);
+            openNow(player);
+        }, ticks);
     }
 
     /**
