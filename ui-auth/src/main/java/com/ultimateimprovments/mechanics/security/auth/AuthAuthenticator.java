@@ -145,6 +145,7 @@ public class AuthAuthenticator {
         UUID uuid = player.getUniqueId();
 
         if (playerState.isAuthenticated(uuid)) {
+            AuthPrompt.removePlayer(uuid);
             player.sendMessage(MessageUtil.parse(MessagesManager.getString(
                     "auth.messages.already_authenticated",
                     "<gold>✦</gold> <white>You are already logged in!</white>")));
@@ -155,7 +156,6 @@ public class AuthAuthenticator {
             // rejected — nothing would ever re-open the screen, leaving the player
             // frozen with every action blocked. Re-open it when the lock expires.
             AuthPrompt.openLater(player, rateLimiter.getRemainingMs(player) + 500L);
-            AuthPrompt.sendMissingHint(player);
             return;
         }
 
@@ -238,6 +238,7 @@ public class AuthAuthenticator {
                         player.sendMessage(MessageUtil.parse(MessagesManager.getString(
                                 "auth.messages.auth_check_error",
                                 "<red>❌ Error checking password! Please try again.</red>")));
+                        sendChatPromptAfterError(player);
                     }
                 });
                 Main.getInstance().getLogger().log(java.util.logging.Level.SEVERE, "[Auth] Async auth error", e);
@@ -250,8 +251,9 @@ public class AuthAuthenticator {
      * re-opens the auth screen once the client has finished closing the old one.
      */
     private void sendChatPromptAfterError(Player player) {
+        // The client closes the dialog on submit. Re-open it after the error message
+        // without showing the generic "Action blocked" hint for this expected flow.
         AuthPrompt.openLater(player, 1000L);
-        AuthPrompt.sendMissingHint(player);
     }
 
     // =========================

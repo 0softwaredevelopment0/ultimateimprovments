@@ -142,10 +142,25 @@ public class AuthDialogHandler implements Listener {
         ConsoleLogger.info("[AuthDialog] Password submitted by " + player.getName()
             + " (len=" + password.length() + ")");
 
-        // Delegate to the existing authentication system
+        // The client has already closed the dialog. Mark the request before delegating
+        // so AuthPrompt does not interpret post-submit movement/input as a missing window.
         AuthManager manager = AuthManager.getInstance();
-        if (manager != null) {
+        if (manager == null) {
+            player.sendMessage(MessageUtil.parse(MessagesManager.getString(
+                    "auth.messages.not_initialized",
+                    "<red>❌ Authorization system is not initialized!</red>")));
+            showErrorAndReopen(player);
+            return;
+        }
+
+        AuthPrompt.markSubmitting(player);
+        try {
             manager.handlePasswordSubmit(player, password);
+        } catch (RuntimeException e) {
+            AuthPrompt.finishSubmitting(player);
+            ConsoleLogger.error("[AuthDialog] Password submission failed for "
+                    + player.getName() + ": " + e.getMessage());
+            showErrorAndReopen(player);
         }
     }
 
