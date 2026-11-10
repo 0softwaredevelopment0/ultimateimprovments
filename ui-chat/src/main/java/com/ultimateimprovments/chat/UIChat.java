@@ -6,7 +6,7 @@ import com.ultimateimprovments.util.ConsoleLogger;
 import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.java.JavaPlugin;
 
-public class UIChat extends JavaPlugin implements com.ultimateimprovments.core.SoftReloadable {
+public class UIChat extends JavaPlugin {
 
     private static UIChat instance;
     private ChatFilterManager chatFilterManager;
@@ -30,8 +30,7 @@ public class UIChat extends JavaPlugin implements com.ultimateimprovments.core.S
      * Never disables the plugin — on Paper that would close the JAR and
      * re-enabling does not reopen it ("zip file closed" zombie).
      */
-    @Override
-    public void softReload() {
+        public void softReload() {
         ConsoleLogger.info("[UI-Chat] Soft reload (in place)...");
         runShutdown();
         runStartup();

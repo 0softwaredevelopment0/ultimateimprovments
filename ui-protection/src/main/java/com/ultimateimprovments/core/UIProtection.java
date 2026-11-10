@@ -17,7 +17,7 @@ import java.util.Set;
  * protection listener, plus the {@code /ui protection} command. Modules are
  * declared in {@link ProtectionModules}.
  */
-public class UIProtection extends JavaPlugin implements SoftReloadable {
+public class UIProtection extends JavaPlugin {
 
     /** Modules owned by this addon (path "infrastructure/listeners" is generic). */
     private static final Set<String> OWNED_MODULES = Set.of("Protection", "VoidProtection");
@@ -50,8 +50,7 @@ public class UIProtection extends JavaPlugin implements SoftReloadable {
      * Re-registering this addon's modules REPLACES the old instances in the
      * shared ModuleManager (see ModuleManager.register).
      */
-    @Override
-    public void softReload() {
+        public void softReload() {
         ConsoleLogger.info("[UI-Protection] Soft reload (in place)...");
         HandlerList.unregisterAll(this);
         runStartup();

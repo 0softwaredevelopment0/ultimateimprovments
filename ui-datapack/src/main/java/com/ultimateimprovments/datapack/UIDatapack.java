@@ -20,7 +20,7 @@ import org.bukkit.plugin.java.JavaPlugin;
  * </ul>
  * Loaded right after UI-Core so the gate is active before UI-Other registers its modules.
  */
-public class UIDatapack extends JavaPlugin implements com.ultimateimprovments.core.SoftReloadable {
+public class UIDatapack extends JavaPlugin {
 
     private static UIDatapack instance;
 
@@ -52,8 +52,7 @@ public class UIDatapack extends JavaPlugin implements com.ultimateimprovments.co
      * closed" zombie). The bundled datapack itself is registered at BOOTSTRAP
      * (before worlds load) and is not touched by a reload.
      */
-    @Override
-    public void softReload() {
+        public void softReload() {
         ConsoleLogger.info("[UI-Datapack] Soft reload (in place)...");
         runStartup();
     }

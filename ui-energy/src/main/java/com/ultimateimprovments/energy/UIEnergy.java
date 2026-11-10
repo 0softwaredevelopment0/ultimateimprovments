@@ -19,7 +19,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
 
-public class UIEnergy extends JavaPlugin implements com.ultimateimprovments.core.SoftReloadable {
+public class UIEnergy extends JavaPlugin {
 
     private static UIEnergy instance;
 
@@ -50,8 +50,7 @@ public class UIEnergy extends JavaPlugin implements com.ultimateimprovments.core
      * Never disables the plugin — on Paper that would close the JAR and
      * re-enabling does not reopen it ("zip file closed" zombie).
      */
-    @Override
-    public void softReload() {
+        public void softReload() {
         getLogger().info("UI-Energy soft reload (in place)...");
         runShutdown();
         runStartup();

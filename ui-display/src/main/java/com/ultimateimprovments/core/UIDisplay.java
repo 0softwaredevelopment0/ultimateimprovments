@@ -12,7 +12,7 @@ import java.util.Set;
  * Modules are declared in {@link DisplayModules}. Vanish state is read through
  * {@code CoreHooks.isVanished}, so this addon does not depend on the player addon.
  */
-public class UIDisplay extends JavaPlugin implements SoftReloadable {
+public class UIDisplay extends JavaPlugin {
 
     private static final Set<String> OWNED_MODULES = Set.of("Tab", "Scoreboard", "BossBar");
 
@@ -44,8 +44,7 @@ public class UIDisplay extends JavaPlugin implements SoftReloadable {
      * Re-registering this addon's modules REPLACES the old instances in the
      * shared ModuleManager (see ModuleManager.register).
      */
-    @Override
-    public void softReload() {
+        public void softReload() {
         ConsoleLogger.info("[UI-Display] Soft reload (in place)...");
         HandlerList.unregisterAll(this);
         runStartup();

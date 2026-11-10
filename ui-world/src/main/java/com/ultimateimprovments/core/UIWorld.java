@@ -21,7 +21,7 @@ import java.util.Set;
  * wireless redstone, minecart speed, bedrock/sky challenges, meteor).
  * Modules are declared in {@link WorldModules}.
  */
-public class UIWorld extends JavaPlugin implements SoftReloadable {
+public class UIWorld extends JavaPlugin {
 
     private static final Set<String> OWNED_MODULES = Set.of(
             "Beacon", "BlockCollapse", "DragonEgg", "BlockFriction", "BedrockBreak", "Kaboom",
@@ -57,8 +57,7 @@ public class UIWorld extends JavaPlugin implements SoftReloadable {
      * Re-registering this addon's modules REPLACES the old instances in the
      * shared ModuleManager (see ModuleManager.register).
      */
-    @Override
-    public void softReload() {
+        public void softReload() {
         ConsoleLogger.info("[UI-World] Soft reload (in place)...");
         HandlerList.unregisterAll(this);
         runStartup();

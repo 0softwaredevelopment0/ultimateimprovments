@@ -135,7 +135,7 @@ public class JoinInvulnerableReset implements Listener {
      * immediate saveData). No-op when the flag is already clear.
      */
     private void resetIfStale(Player player) {
-        if (!player.isInvulnerable()) return; // nothing to fix
+        if (!player.isMarkedInvulnerable()) return; // nothing to fix
 
         // Bukkit setInvulnerable(false) writes the same NBT "Invulnerable:0b"
         // on the entity handle (Paper 26.3 removed the direct NMS setter);

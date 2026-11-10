@@ -7,7 +7,7 @@ import com.ultimateimprovments.whitelist.WhitelistManager;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 
-public class UIPunish extends JavaPlugin implements com.ultimateimprovments.core.SoftReloadable {
+public class UIPunish extends JavaPlugin {
 
     private static UIPunish instance;
 
@@ -32,8 +32,7 @@ public class UIPunish extends JavaPlugin implements com.ultimateimprovments.core
      * re-enabling does not reopen it ("zip file closed" zombie). Command
      * re-registration is safe: SubCommandRegistry replaces by name.
      */
-    @Override
-    public void softReload() {
+        public void softReload() {
         getLogger().info("UI-Punish soft reload (in place)...");
         BlockEnforcer.shutdown();
         org.bukkit.event.HandlerList.unregisterAll(this);

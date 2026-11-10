@@ -14,7 +14,7 @@ import java.util.Set;
  * UIAdmin — the admin addon: economy, op management and the updater, plus their
  * {@code /ui} commands. Modules are declared in {@link AdminModules}.
  */
-public class UIAdmin extends JavaPlugin implements SoftReloadable {
+public class UIAdmin extends JavaPlugin {
 
     private static final Set<String> OWNED_MODULES = Set.of("Economy");
 
@@ -48,8 +48,7 @@ public class UIAdmin extends JavaPlugin implements SoftReloadable {
      * Re-registering this addon's modules REPLACES the old instances in the
      * shared ModuleManager (see ModuleManager.register).
      */
-    @Override
-    public void softReload() {
+        public void softReload() {
         ConsoleLogger.info("[UI-Admin] Soft reload (in place)...");
         HandlerList.unregisterAll(this);
         com.ultimateimprovments.op.OpManager.shutdown();

@@ -5,7 +5,7 @@ import com.ultimateimprovments.database.DatabaseManager;
 import com.ultimateimprovments.util.ConsoleLogger;
 import com.ultimateimprovments.util.MessageUtil;
 import org.bukkit.Bukkit;
-import org.bukkit.GameRule;
+import org.bukkit.GameRules;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.advancement.Advancement;
@@ -150,21 +150,19 @@ public class SpaceManager {
             debugLog("Calling creator.createWorld()...");
             spaceWorld = creator.createWorld();
             if (spaceWorld != null) {
-                // Paper 26.3 deprecated setKeepSpawnInMemory with no direct
-                // replacement — kept: the space world must not retain spawn chunks.
-                //noinspection deprecation
-                spaceWorld.setKeepSpawnInMemory(false);
+                // Spawn chunks were removed in Minecraft 1.21.9; no keep-in-memory
+                // setting is needed for this world anymore.
                 spaceWorld.setAutoSave(true);
-                // Typed GameRule API (setGameRuleValue(String,String) is deprecated for removal).
-                spaceWorld.setGameRule(GameRule.DO_MOB_SPAWNING, false);
-                spaceWorld.setGameRule(GameRule.DO_DAYLIGHT_CYCLE, false);
-                spaceWorld.setGameRule(GameRule.DO_WEATHER_CYCLE, false);
-                spaceWorld.setGameRule(GameRule.DO_FIRE_TICK, false);
-                spaceWorld.setGameRule(GameRule.DO_TILE_DROPS, false);
-                spaceWorld.setGameRule(GameRule.DO_ENTITY_DROPS, false);
-                spaceWorld.setGameRule(GameRule.MOB_GRIEFING, false);
-                spaceWorld.setGameRule(GameRule.ANNOUNCE_ADVANCEMENTS, false);
-                spaceWorld.setGameRule(GameRule.DO_IMMEDIATE_RESPAWN, true);
+                spaceWorld.setGameRule(GameRules.SPAWN_MOBS, false);
+                spaceWorld.setGameRule(GameRules.ADVANCE_TIME, false);
+                spaceWorld.setGameRule(GameRules.ADVANCE_WEATHER, false);
+                // fire_spread_radius_around_player = 0 replaces the removed doFireTick rule.
+                spaceWorld.setGameRule(GameRules.FIRE_SPREAD_RADIUS_AROUND_PLAYER, 0);
+                spaceWorld.setGameRule(GameRules.BLOCK_DROPS, false);
+                spaceWorld.setGameRule(GameRules.ENTITY_DROPS, false);
+                spaceWorld.setGameRule(GameRules.MOB_GRIEFING, false);
+                spaceWorld.setGameRule(GameRules.SHOW_ADVANCEMENT_MESSAGES, false);
+                spaceWorld.setGameRule(GameRules.IMMEDIATE_RESPAWN, true);
                 debugLog("World '" + WORLD_NAME + "' created successfully. "
                         + "Environment=" + spaceWorld.getEnvironment()
                         + " maxHeight=" + spaceWorld.getMaxHeight());

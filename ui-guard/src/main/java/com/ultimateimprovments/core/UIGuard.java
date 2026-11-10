@@ -21,7 +21,7 @@ import java.util.Set;
  * UIGuard — the server-guard addon (packet/proxy/redstone guard, bot protection,
  * server overload). Modules are declared in {@link GuardModules}.
  */
-public class UIGuard extends JavaPlugin implements SoftReloadable {
+public class UIGuard extends JavaPlugin {
 
     private static final Set<String> OWNED_MODULES = Set.of(
             "RedstoneGuard", "PacketGuard", "ProxyServer", "BotProtection", "ServerOverload",
@@ -56,8 +56,7 @@ public class UIGuard extends JavaPlugin implements SoftReloadable {
      * Re-registering this addon's modules REPLACES the old instances in the
      * shared ModuleManager (see ModuleManager.register).
      */
-    @Override
-    public void softReload() {
+        public void softReload() {
         ConsoleLogger.info("[UI-Guard] Soft reload (in place)...");
         HandlerList.unregisterAll(this);
         runStartup();

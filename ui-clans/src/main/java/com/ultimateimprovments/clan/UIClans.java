@@ -4,7 +4,7 @@ import com.ultimateimprovments.command.clan.ClanFriendlyFireListener;
 import com.ultimateimprovments.core.Main;
 import org.bukkit.plugin.java.JavaPlugin;
 
-public class UIClans extends JavaPlugin implements com.ultimateimprovments.core.SoftReloadable {
+public class UIClans extends JavaPlugin {
 
     private static UIClans instance;
 
@@ -25,8 +25,7 @@ public class UIClans extends JavaPlugin implements com.ultimateimprovments.core.
      * Never disables the plugin — on Paper that would close the JAR and
      * re-enabling does not reopen it ("zip file closed" zombie).
      */
-    @Override
-    public void softReload() {
+        public void softReload() {
         getLogger().info("UI-Clans soft reload (in place)...");
         org.bukkit.event.HandlerList.unregisterAll(this);
         runStartup();

@@ -195,16 +195,16 @@ public class OmniscannerGUI implements Listener {
     }
 
     private static ItemStack createTypeItem(String typeName) {
-        ItemStack item = new ItemStack(Material.PAPER);
+        Material material = Material.PAPER;
+        try {
+            material = Material.valueOf(typeName.toUpperCase(java.util.Locale.ROOT));
+        } catch (IllegalArgumentException ignored) {}
+
+        ItemStack item = new ItemStack(material);
         ItemMeta meta = item.getItemMeta();
         if (meta == null) return item;
 
         meta.displayName(MessageUtil.parse("<!italic><white>" + typeName + "</white>"));
-        try {
-            Material mat = Material.valueOf(typeName.toUpperCase());
-            item.setType(mat);
-        } catch (IllegalArgumentException ignored) {}
-
         meta.lore(List.of(MessageUtil.parse("<!italic><red>ПКМ — удалить</red>")));
         meta.getPersistentDataContainer().set(Keys.GUI_PROTECTED, PersistentDataType.BYTE, (byte) 1);
         item.setItemMeta(meta);

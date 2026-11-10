@@ -12,7 +12,7 @@ import java.util.Set;
  * elytra wear, leash, mode-protect, shield slowness, join-invulnerable).
  * Modules are declared in {@link PlayerModules}.
  */
-public class UIPlayer extends JavaPlugin implements SoftReloadable {
+public class UIPlayer extends JavaPlugin {
 
     private static final Set<String> OWNED_MODULES = Set.of(
             "ArmorEffects", "ArmorTrimEffects", "Attributes", "JoinInvulnerableReset",
@@ -46,8 +46,7 @@ public class UIPlayer extends JavaPlugin implements SoftReloadable {
      * Re-registering this addon's modules REPLACES the old instances in the
      * shared ModuleManager (see ModuleManager.register).
      */
-    @Override
-    public void softReload() {
+        public void softReload() {
         ConsoleLogger.info("[UI-Player] Soft reload (in place)...");
         HandlerList.unregisterAll(this);
         runStartup();

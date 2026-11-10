@@ -37,7 +37,7 @@ public final class PlayerState {
         this.flySpeed = player.getFlySpeed();
         this.allowFlight = player.getAllowFlight();
         this.flying = player.isFlying();
-        this.invulnerable = player.isInvulnerable();
+        this.invulnerable = player.isMarkedInvulnerable();
         this.saturation = player.getSaturation();
         this.foodLevel = player.getFoodLevel();
     }
