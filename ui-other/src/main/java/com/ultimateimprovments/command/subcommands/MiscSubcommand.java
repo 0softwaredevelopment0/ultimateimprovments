@@ -399,7 +399,9 @@ public final class MiscSubcommand {
         if (oldMeta.hasLore()) newMeta.lore(oldMeta.lore());
         oldMeta.getPersistentDataContainer().copyTo(newMeta.getPersistentDataContainer(), true);
         oldMeta.getEnchants().forEach((ench, level) -> newMeta.addEnchant(ench, level, true));
-        if (oldMeta.hasCustomModelData()) newMeta.setCustomModelData(oldMeta.getCustomModelData());
+        if (oldMeta.hasCustomModelDataComponent()) {
+            newMeta.setCustomModelDataComponent(oldMeta.getCustomModelDataComponent());
+        }
         newBook.setItemMeta(newMeta);
         player.getInventory().setItemInMainHand(newBook);
         player.sendMessage(MessageUtil.parse("<green>✔</green> <white>Book unlocked! You can now edit it.</white>"));

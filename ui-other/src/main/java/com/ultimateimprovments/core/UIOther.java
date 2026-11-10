@@ -6,7 +6,7 @@ import com.ultimateimprovments.util.ConsoleLogger;
 import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.java.JavaPlugin;
 
-public class UIOther extends JavaPlugin implements com.ultimateimprovments.core.SoftReloadable {
+public class UIOther extends JavaPlugin {
 
     private static UIOther instance;
 
@@ -39,8 +39,7 @@ public class UIOther extends JavaPlugin implements com.ultimateimprovments.core.
      * itself is NOT shut down here (that is owned by the reload coordinator
      * for the full cycle and by the real disable otherwise).
      */
-    @Override
-    public void softReload() {
+        public void softReload() {
         ConsoleLogger.info("[UI-Other] Soft reload (in place)...");
         HandlerList.unregisterAll(this);
         runStaticShutdown();

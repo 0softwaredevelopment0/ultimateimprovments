@@ -5,7 +5,7 @@ import com.ultimateimprovments.mechanics.crafting.RecipeRegistry;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 
-public class UIShared extends JavaPlugin implements com.ultimateimprovments.core.SoftReloadable {
+public class UIShared extends JavaPlugin {
 
     private static UIShared instance;
 
@@ -26,8 +26,7 @@ public class UIShared extends JavaPlugin implements com.ultimateimprovments.core
      * Never disables the plugin — on Paper that would close the JAR and
      * re-enabling does not reopen it ("zip file closed" zombie).
      */
-    @Override
-    public void softReload() {
+        public void softReload() {
         getLogger().info("UI-Shared soft reload (in place)...");
         org.bukkit.event.HandlerList.unregisterAll(this);
         runStartup();

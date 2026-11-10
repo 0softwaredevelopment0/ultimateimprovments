@@ -6,6 +6,7 @@ import com.ultimateimprovments.util.StructuresMessages;
 import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.block.Sign;
+import org.bukkit.block.sign.Side;
 import org.bukkit.block.data.type.CopperBulb;
 
 /**
@@ -470,7 +471,7 @@ public class ReactorDisplay {
             int textLines = label.length - 2;
             for (int line = 0; line < 4; line++) {
                 String text = line < textLines ? "<white>" + label[2 + line] : "";
-                signState.line(line, MessageUtil.parse(text));
+                signState.getSide(Side.FRONT).line(line, MessageUtil.parse(text));
             }
             // update() diffs against the live block entity — an unchanged
             // sign is not rewritten (no client packet spam)
@@ -499,7 +500,7 @@ public class ReactorDisplay {
         Block block = base.clone().add(off[0], off[1], off[2]).getBlock();
         var state = block.getState();
         if (state instanceof Sign signState) {
-            signState.line(line, MessageUtil.parse(text));
+            signState.getSide(Side.FRONT).line(line, MessageUtil.parse(text));
             signState.update(true, false);
         }
     }

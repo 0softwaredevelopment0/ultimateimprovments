@@ -12,7 +12,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.*;
 
-public final class UIAntiCheat extends JavaPlugin implements com.ultimateimprovments.core.SoftReloadable {
+public final class UIAntiCheat extends JavaPlugin {
 
     private static UIAntiCheat instance;
 
@@ -37,8 +37,7 @@ public final class UIAntiCheat extends JavaPlugin implements com.ultimateimprovm
      * Never disables the plugin — on Paper that would close the JAR and
      * re-enabling does not reopen it ("zip file closed" zombie).
      */
-    @Override
-    public void softReload() {
+        public void softReload() {
         ConsoleLogger.info("[AntiCheat] Soft reload (in place)...");
         PacketHandler.shutdown();
         AntiCheatManager.shutdown();

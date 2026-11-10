@@ -8,7 +8,7 @@ import com.ultimateimprovments.util.ConsoleLogger;
 import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.java.JavaPlugin;
 
-public final class UIEssentials extends JavaPlugin implements com.ultimateimprovments.core.SoftReloadable {
+public final class UIEssentials extends JavaPlugin {
 
     private static UIEssentials instance;
 
@@ -32,8 +32,7 @@ public final class UIEssentials extends JavaPlugin implements com.ultimateimprov
      * re-enabling does not reopen it ("zip file closed" zombie).
      * Command re-registration is safe: SubCommandRegistry replaces by name.
      */
-    @Override
-    public void softReload() {
+        public void softReload() {
         ConsoleLogger.info("[Essentials] Soft reload (in place)...");
         HandlerList.unregisterAll(this);
         runStartup();

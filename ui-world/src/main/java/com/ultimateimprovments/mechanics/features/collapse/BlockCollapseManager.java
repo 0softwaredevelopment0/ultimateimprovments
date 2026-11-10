@@ -624,7 +624,7 @@ public class BlockCollapseManager extends BukkitRunnable {
                 world.dropItemNaturally(block.getLocation().add(0.5, 0.5, 0.5), drop);
             }
             world.playSound(block.getLocation().add(0.5, 0.5, 0.5),
-                    block.getSoundGroup().getBreakSound(), 1.0f, 0.8f);
+                    block.getBlockSoundGroup().getBreakSound(), 1.0f, 0.8f);
 
             block.setType(Material.AIR);
             map.remove(key);

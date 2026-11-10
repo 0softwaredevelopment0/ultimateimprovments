@@ -17,7 +17,7 @@ import java.util.Set;
  * accelerator, scanner items, omniscanner + admin menu).
  * Modules are declared in {@link ItemsModules}.
  */
-public class UIItems extends JavaPlugin implements SoftReloadable {
+public class UIItems extends JavaPlugin {
 
     private static final Set<String> OWNED_MODULES = Set.of(
             "Crafting", "EntityLocator", "Waypoint", "Antimatter", "ExpBottleUpgrade",
@@ -52,8 +52,7 @@ public class UIItems extends JavaPlugin implements SoftReloadable {
      * Re-registering this addon's modules REPLACES the old instances in the
      * shared ModuleManager (see ModuleManager.register).
      */
-    @Override
-    public void softReload() {
+        public void softReload() {
         ConsoleLogger.info("[UI-Items] Soft reload (in place)...");
         HandlerList.unregisterAll(this);
         runStartup();

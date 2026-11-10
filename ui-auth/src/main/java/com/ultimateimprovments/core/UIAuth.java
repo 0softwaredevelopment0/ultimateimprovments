@@ -17,7 +17,7 @@ import org.bukkit.plugin.java.JavaPlugin;
  * {@link AuthModules}. {@code AuthPlayerState} publishes the pending-auth state
  * to {@code CoreHooks} so unrelated addons can respect the freeze.
  */
-public class UIAuth extends JavaPlugin implements SoftReloadable {
+public class UIAuth extends JavaPlugin {
 
     /** Module path prefix owned by this addon. */
     private static final String PATH_PREFIX = "mechanics/security/auth";
@@ -50,8 +50,7 @@ public class UIAuth extends JavaPlugin implements SoftReloadable {
      * Re-registering this addon's modules REPLACES the old instances in the
      * shared ModuleManager (see ModuleManager.register).
      */
-    @Override
-    public void softReload() {
+        public void softReload() {
         ConsoleLogger.info("[UI-Auth] Soft reload (in place)...");
         HandlerList.unregisterAll(this);
         runStartup();

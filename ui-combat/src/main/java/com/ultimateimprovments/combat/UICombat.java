@@ -12,7 +12,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
 
-public class UICombat extends JavaPlugin implements com.ultimateimprovments.core.SoftReloadable {
+public class UICombat extends JavaPlugin {
 
     private static UICombat instance;
     private BukkitTask gunTask;
@@ -35,8 +35,7 @@ public class UICombat extends JavaPlugin implements com.ultimateimprovments.core
      * Never disables the plugin — on Paper that would close the JAR and
      * re-enabling does not reopen it ("zip file closed" zombie).
      */
-    @Override
-    public void softReload() {
+        public void softReload() {
         getLogger().info("UI-Combat soft reload (in place)...");
         runShutdown();
         runStartup();

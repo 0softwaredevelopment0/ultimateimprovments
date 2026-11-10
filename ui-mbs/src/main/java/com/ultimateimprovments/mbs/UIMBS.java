@@ -18,7 +18,7 @@ import org.bukkit.plugin.java.JavaPlugin;
  * Energy-dependent behaviour is exposed through the {@code MbsEnergy} API bridge,
  * which UI-Energy registers at startup — UI-MBS never depends on UI-Energy.
  */
-public class UIMBS extends JavaPlugin implements com.ultimateimprovments.core.SoftReloadable {
+public class UIMBS extends JavaPlugin {
 
     private static UIMBS instance;
 
@@ -45,8 +45,7 @@ public class UIMBS extends JavaPlugin implements com.ultimateimprovments.core.So
      * on Paper that would close the JAR and re-enabling does not reopen it
      * ("zip file closed" zombie).
      */
-    @Override
-    public void softReload() {
+        public void softReload() {
         ConsoleLogger.info("[UI-MBS] Soft reload (in place)...");
         runShutdown();
         runStartup();

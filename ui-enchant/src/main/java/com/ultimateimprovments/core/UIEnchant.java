@@ -18,7 +18,7 @@ import org.bukkit.plugin.java.JavaPlugin;
  * {@link EnchantModules}. The datapack content itself lives in UI-Datapack
  * (soft-depend); its {@code DatapackGate} is consulted while the modules register.
  */
-public class UIEnchant extends JavaPlugin implements SoftReloadable {
+public class UIEnchant extends JavaPlugin {
 
     /** Module path prefix owned by this addon. */
     private static final String PATH_PREFIX = "enchantment/";
@@ -51,8 +51,7 @@ public class UIEnchant extends JavaPlugin implements SoftReloadable {
      * Re-registering this addon's modules REPLACES the old instances in the
      * shared ModuleManager (see ModuleManager.register).
      */
-    @Override
-    public void softReload() {
+        public void softReload() {
         ConsoleLogger.info("[UI-Enchant] Soft reload (in place)...");
         HandlerList.unregisterAll(this);
         runStartup();
