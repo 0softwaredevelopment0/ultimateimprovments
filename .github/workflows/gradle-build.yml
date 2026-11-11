@@ -30,4 +30,7 @@ jobs:
           java-version: '26'
 
       - name: Build and test all modules
-        run: ./gradlew --no-daemon build
+        run: ./gradlew --no-daemon clean build
+
+      - name: Verify release JAR packaging
+        run: bash Scripts/build/package_jars.sh --no-build
