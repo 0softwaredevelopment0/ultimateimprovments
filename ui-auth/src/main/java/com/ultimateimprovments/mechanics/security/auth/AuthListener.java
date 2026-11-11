@@ -12,6 +12,7 @@ import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.EntityPickupItemEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.player.*;
 
 import java.util.UUID;
@@ -85,6 +86,12 @@ public class AuthListener implements Listener {
         }
         // Drop the dialog-prompt bookkeeping (throttle timestamps) for a clean rejoin.
         AuthPrompt.removePlayer(uuid);
+        // Drop a pending GitHub 2FA challenge: the one-time state token would
+        // otherwise sit in stateToUuid until the 5-minute expiry.
+        Auth2FA twofa = Auth2FA.getInstance();
+        if (twofa != null) {
+            twofa.clearPending(uuid);
+        }
     }
 
     // =========================
@@ -265,6 +272,20 @@ public class AuthListener implements Listener {
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
     public void onInventoryClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)) return;
+        if (!needsAuth(player)) return;
+        blockAndPrompt(event, player);
+    }
+
+    // =========================
+    // BLOCK INVENTORY OPENING if not authed
+    //
+    // Entity containers (chests in minecarts, entity-opened GUIs) do not necessarily
+    // go through PlayerInteractEvent; opening one before login would at least leak
+    // its contents even though clicks are already blocked.
+    // =========================
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
+    public void onInventoryOpen(InventoryOpenEvent event) {
+        if (!(event.getPlayer() instanceof Player player)) return;
         if (!needsAuth(player)) return;
         blockAndPrompt(event, player);
     }

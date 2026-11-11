@@ -374,9 +374,9 @@ End-crystal turrets are a ranged defense system:
 - Registration/login via a custom dialog (Minecraft Custom Screen) with a password field — passwords are **never** accepted through chat or commands; `/ui auth login` and `/ui auth register` no longer exist.
 - **Argon2id** password hashing.
 - **Password policy** (`[auth.password]`): length 8–32 by default, at least one digit, at least one lowercase and one uppercase English letter, at least one special character, and a configurable list of forbidden common passwords (25 entries by default). Applies to registration, self change and admin resets.
-- **GitHub 2FA** (OAuth) — clickable link in chat.
+- **GitHub 2FA** (OAuth) — clickable link in chat. 2FA is fail-closed: a missing/unreadable GitHub binding refuses the login instead of being disabled silently. The callback server is plain HTTP on `auth.twofa.github.port` with no TLS — set `public_url` to an HTTPS reverse proxy (or keep the port reachable only over a trusted network/VPN), because the OAuth `state` and `code` travel over that URL.
 - IP check, account limit per IP, sessions, login timeout, max wrong attempts, force login, registration reset.
-- Wrong password locks the account **and** its IP for 15 seconds (`auth.request_cooldown_seconds`), persisted in the `auth_lockouts` table — the lock survives a reconnect and a server restart.
+- Wrong password locks the account **and** its IP, persisted in the `auth_lockouts` table — the lock survives a reconnect and a server restart. The lock grows after each consecutive failure (`auth.lockout.backoff_multiplier`, 15 s → 30 s → 60 s …) up to `auth.lockout.max_seconds`, and a new penalty never shortens an active lock. Only one password check runs at a time per account/IP, so a burst of dialog submits cannot bypass the limit.
 - Player dialogs: `/ui auth logout` (confirmation, then the session is reset and the player is kicked), `/ui auth changepassword` (old + new password), `/ui auth 2fa setup|disable`.
 - Admin recovery: `/ui auth forcelogin <nick>` (console-audited), `/ui auth resetauth <nick>`, `/ui auth delsession <nick>`, `/ui auth chgpass` — players get the dialog (nickname + new password), the console uses `/ui auth chgpass <nick> <new_password>`.
 

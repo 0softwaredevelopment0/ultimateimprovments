@@ -109,8 +109,15 @@ public class AuthManager {
         return Auth2FA.getGithubUsername(uuid);
     }
 
-    public void setupGithub2FA(UUID uuid, String githubUsername) {
-        Auth2FA.setEnabled(uuid, githubUsername, true);
+    public boolean setupGithub2FA(UUID uuid, String githubUsername) {
+        if (githubUsername == null) return false;
+        String account = githubUsername.trim();
+        // Empty binding = "2FA enabled with no account", which used to be a bypass path.
+        if (account.isEmpty()) return false;
+        // One GitHub account must not be the second factor of two Minecraft accounts.
+        if (Auth2FA.isGithubLinkedToOther(uuid, account)) return false;
+        Auth2FA.setEnabled(uuid, account, true);
+        return true;
     }
 
     public void disable2FA(UUID uuid) {

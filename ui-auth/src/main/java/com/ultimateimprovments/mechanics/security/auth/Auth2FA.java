@@ -144,6 +144,29 @@ public class Auth2FA {
         return null;
     }
 
+    /**
+     * Whether the GitHub account is already linked to a different player.
+     * <p>
+     * Returns {@code true} on a read error as well: the binding check must not fail
+     * open and attach one GitHub account to two Minecraft accounts.
+     */
+    public static boolean isGithubLinkedToOther(UUID uuid, String githubUsername) {
+        if (githubUsername == null || githubUsername.isBlank()) return false;
+        try (Connection con = DatabaseManager.getConnection();
+             PreparedStatement ps = con.prepareStatement(
+                     "SELECT 1 FROM auth_2fa WHERE uuid <> ? AND LOWER(github_username) = LOWER(?)")) {
+
+            ps.setString(1, uuid.toString());
+            ps.setString(2, githubUsername.trim());
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next();
+            }
+        } catch (Exception e) {
+            ConsoleLogger.warn("[Auth2FA] GitHub binding check failed: " + e.getMessage());
+            return true;
+        }
+    }
+
     public static void setEnabled(UUID uuid, String githubUsername, boolean enabled) {
         try (Connection con = DatabaseManager.getConnection();
              PreparedStatement ps = con.prepareStatement(

@@ -29,10 +29,20 @@ public class AuthRateLimiter {
 
     private static final int MAX_IP_ENTRIES = 4096;
 
+    /**
+     * How long one password attempt is "reserved". A reservation prevents a burst
+     * of {@code auth_submit} clicks from starting N parallel Argon2 checks before
+     * the first result (and its lockout) arrives. It expires on its own so a lost
+     * release can never wedge an account.
+     */
+    private static final long ATTEMPT_IN_FLIGHT_TTL_MS = 30_000L;
+
     private static AuthRateLimiter instance;
 
     private final Map<UUID, Long> accountLockedUntil = new ConcurrentHashMap<>();
     private final Map<String, Long> ipLockedUntil = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> accountAttemptInFlight = new ConcurrentHashMap<>();
+    private final Map<String, Long> ipAttemptInFlight = new ConcurrentHashMap<>();
 
     public AuthRateLimiter() {
         instance = this;
@@ -94,26 +104,105 @@ public class AuthRateLimiter {
     }
 
     /**
+     * Reserves one password verification for this account/IP. Must be called
+     * synchronously (main thread) right before the async Argon2 check.
+     * <p>
+     * Without this, N {@code auth_submit} packets fired in one tick all passed the
+     * cooldown (which is only applied after an error) and started N parallel
+     * checks — the 15-second lock never saw the burst.
+     *
+     * @return {@code false} when another attempt is already being verified
+     */
+    public boolean tryBeginAttempt(Player player) {
+        long now = System.currentTimeMillis();
+        UUID uuid = player.getUniqueId();
+        String ip = ipOf(player);
+
+        Long accountMark = accountAttemptInFlight.get(uuid);
+        if (accountMark != null && accountMark > now) return false;
+        if (!ip.isEmpty()) {
+            Long ipMark = ipAttemptInFlight.get(ip);
+            if (ipMark != null && ipMark > now) return false;
+        }
+
+        long until = now + ATTEMPT_IN_FLIGHT_TTL_MS;
+        accountAttemptInFlight.put(uuid, until);
+        if (!ip.isEmpty()) ipAttemptInFlight.put(ip, until);
+        return true;
+    }
+
+    /** Releases the reservation taken by {@link #tryBeginAttempt}. */
+    public void finishAttempt(Player player) {
+        if (player == null) return;
+        accountAttemptInFlight.remove(player.getUniqueId());
+        String ip = ipOf(player);
+        if (!ip.isEmpty()) ipAttemptInFlight.remove(ip);
+    }
+
+    /**
      * Locks the account and the player's IP after a wrong password, in memory and
      * in the database (so it outlives the session). The IP lock also covers other
      * accounts sharing that address.
+     * <p>
+     * The lock grows with every consecutive failure
+     * ({@code auth.lockout.backoff_multiplier}, capped by
+     * {@code auth.lockout.max_seconds}) and is monotonic: a new penalty never
+     * shortens a lock that is already active.
+     *
+     * @param attempts the persistent failure counter, including this one
      */
-    public void applyPenalty(Player player) {
+    public void applyPenalty(Player player, int attempts) {
         long now = System.currentTimeMillis();
-        long until = now + AuthConfig.getRequestCooldownMs();
+        long delay = lockoutDelayMs(attempts);
 
         UUID uuid = player.getUniqueId();
-        accountLockedUntil.put(uuid, until);
-        AuthDatabase.setLockout(AuthDatabase.SCOPE_ACCOUNT, uuid.toString(), until);
+        long existingAccount = Math.max(
+                accountLockedUntil.getOrDefault(uuid, 0L),
+                AuthDatabase.getLockoutUntil(AuthDatabase.SCOPE_ACCOUNT, uuid.toString()));
+        long accountUntil = Math.max(now + delay, existingAccount);
+        accountLockedUntil.put(uuid, accountUntil);
+        AuthDatabase.setLockout(AuthDatabase.SCOPE_ACCOUNT, uuid.toString(), accountUntil);
 
         String ip = ipOf(player);
         if (!ip.isEmpty()) {
             if (ipLockedUntil.size() >= MAX_IP_ENTRIES) {
                 pruneExpired(now);
             }
-            ipLockedUntil.put(ip, until);
-            AuthDatabase.setLockout(AuthDatabase.SCOPE_IP, ip, until);
+            long existingIp = Math.max(
+                    ipLockedUntil.getOrDefault(ip, 0L),
+                    AuthDatabase.getLockoutUntil(AuthDatabase.SCOPE_IP, ip));
+            long ipUntil = Math.max(now + delay, existingIp);
+            ipLockedUntil.put(ip, ipUntil);
+            AuthDatabase.setLockout(AuthDatabase.SCOPE_IP, ip, ipUntil);
         }
+    }
+
+    /** Exponential delay: base × multiplier^(attempts−1), clamped to the configured cap. */
+    private long lockoutDelayMs(int attempts) {
+        return backoffDelayMs(
+                AuthConfig.getRequestCooldownMs(),
+                AuthConfig.getLockoutBackoffMultiplier(),
+                AuthConfig.getLockoutMaxSeconds() * 1000L,
+                attempts);
+    }
+
+    /**
+     * Pure lockout-growth math (extracted for tests).
+     *
+     * @param baseMs     lock duration after the first wrong password
+     * @param multiplier growth factor per consecutive failure (≤1 = constant)
+     * @param capMs      upper bound of one lock
+     * @param attempts   consecutive failures including the current one
+     */
+    static long backoffDelayMs(long baseMs, int multiplier, long capMs, int attempts) {
+        long base = Math.max(baseMs, 0L);
+        long cap = Math.max(capMs, base);
+        if (multiplier <= 1 || attempts <= 1) return Math.min(base, cap);
+        long delay = base;
+        for (int i = 1; i < attempts && delay < cap; i++) {
+            delay = Math.min(cap, delay * multiplier);
+        }
+        return Math.min(delay, cap);
     }
 
     /**
@@ -127,6 +216,8 @@ public class AuthRateLimiter {
     private void pruneExpired(long now) {
         ipLockedUntil.entrySet().removeIf(entry -> entry.getValue() <= now);
         accountLockedUntil.entrySet().removeIf(entry -> entry.getValue() <= now);
+        ipAttemptInFlight.entrySet().removeIf(entry -> entry.getValue() <= now);
+        accountAttemptInFlight.entrySet().removeIf(entry -> entry.getValue() <= now);
         AuthDatabase.purgeExpiredLockouts(now);
     }
 

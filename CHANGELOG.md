@@ -3,6 +3,30 @@
 All notable changes to the UltimateImprovments plugin family are documented
 in this file.
 
+## [1.8.5-beta.23] - 2026-11-11
+
+Follow-up hardening from the external authentication audit (on top of beta.22).
+
+### Security
+- **Parallel dialog submits can no longer bypass the wrong-password limit.** The
+  cooldown is applied only after an error, so a burst of `auth_submit` clicks all
+  passed it and started N parallel Argon2 checks. One verification is now reserved
+  per account/IP before the async check and released afterwards.
+- **Lockouts grow exponentially** (`auth.lockout.backoff_multiplier`: 15 s → 30 s →
+  60 s …) up to `auth.lockout.max_seconds`, and a new penalty never shortens an
+  already active lock — a burst of errors used to *reduce* the lock to 15 s from
+  the last one.
+- **Pre-login freeze also cancels `InventoryOpenEvent`** (entity/container GUIs that
+  do not go through `PlayerInteractEvent`, e.g. chest minecarts).
+- **A pending GitHub 2FA challenge is cleared on quit** instead of lingering in
+  `stateToUuid` until the 5-minute expiry.
+- `/ui auth 2fa setup` rejects blank GitHub usernames at the API level and refuses
+  an account already linked to another player (`auth.twofa.github_taken`).
+- GUIDE documents that the GitHub callback server is plain HTTP on
+  `auth.twofa.github.port` and must sit behind an HTTPS reverse proxy.
+- The password-change dialog verifies the old password through the same
+  reservation/backoff path.
+
 ## [1.8.5-beta.22] - 2026-11-11
 
 Authentication hardening: the login gate now fails closed, the GitHub second

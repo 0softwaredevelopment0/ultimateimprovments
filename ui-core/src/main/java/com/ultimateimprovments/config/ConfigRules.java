@@ -364,6 +364,8 @@ final class ConfigRules {
             integer("auth.login_timeout_seconds", 1, 3600),
             integer("auth.max_wrong_attempts", 1, 100),
             integer("auth.request_cooldown_seconds", 0, 3600),
+            integer("auth.lockout.backoff_multiplier", 1, 10, "Множитель роста лока после ошибки"),
+            integer("auth.lockout.max_seconds", 1, 86400, "Макс. длительность лока"),
             integer("auth.max_accounts_per_ip", 0, 1000),
             integer("auth.password.min_length", 1, 64, "Мин. длина пароля ([auth.password])"),
             integer("auth.password.max_length", 1, 64, "Макс. длина пароля ([auth.password])"),

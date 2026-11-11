@@ -314,6 +314,8 @@ setup_title = "<gold>✦ <white>2FA <dark_gray>— <gray>Настройка"
 divider = "<gray>━━━━━━━━━━━━━━━━━━━━━"
 # Default: <green>✔ 2FA включена!
 setup_enabled = "<green>✔ 2FA включена!"
+# Default: <red>❌ Этот GitHub-аккаунт уже привязан к другому игроку.</red>
+github_taken = "<red>❌ Этот GitHub-аккаунт уже привязан к другому игроку.</red>"
 # Default: <gray>Аккаунт GitHub: <white>%account%
 github_account = "<gray>Аккаунт GitHub: <white>%account%"
 # Default: <gray>При следующем входе придёт ссылка авторизации GitHub.
@@ -682,6 +684,8 @@ setup_title = "<gold>✦ <white>2FA <dark_gray>— <gray>Setup"
 divider = "<gray>━━━━━━━━━━━━━━━━━━━━━"
 # Default: <green>✔ 2FA enabled!
 setup_enabled = "<green>✔ 2FA enabled!"
+# Default: <red>❌ This GitHub account is already linked to another player.</red>
+github_taken = "<red>❌ This GitHub account is already linked to another player.</red>"
 # Default: <gray>GitHub account: <white>%account%
 github_account = "<gray>GitHub account: <white>%account%"
 # Default: <gray>On the next login you will receive a GitHub authorization link.
@@ -791,6 +795,16 @@ body = "<white>Confirm the login through GitHub.</white>\n<gray>Account: <white>
 # Placeholders: %seconds%, %subcommand%, %flag%, %value%, %name%, %code%, %commands%, %players%, %color%, %remaining%, %max%, %duration%, %date%, %entity%
 
 # Auth settings (sub-sections).
+
+[auth.lockout]
+# Growth factor of the wrong-password lock after each consecutive failure:
+# 15 s -> 30 s -> 60 s -> ... An active lock is never shortened by a new penalty.
+# 1 = constant lock (old behaviour).
+# Default: 2
+backoff_multiplier = 2
+# Upper bound of one lockout period, in seconds.
+# Default: 300
+max_seconds = 300
 
 [auth.check_ip]
 # Master switch (true = feature on).

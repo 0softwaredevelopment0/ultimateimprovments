@@ -72,6 +72,16 @@ public class AuthConfig {
         return getRequestCooldownSeconds() * 1000L;
     }
 
+    /** Growth factor of the wrong-password lock: 15 s → 30 s → 60 s ... (1 = constant). */
+    public static int getLockoutBackoffMultiplier() {
+        return Math.max(1, getInt("auth.lockout.backoff_multiplier", 2));
+    }
+
+    /** Upper bound of one lockout period, in seconds (never below the base cooldown). */
+    public static int getLockoutMaxSeconds() {
+        return Math.max(getRequestCooldownSeconds(), getInt("auth.lockout.max_seconds", 300));
+    }
+
     public static int getMaxAccountsPerIp() {
         return Math.max(getInt("auth.max_accounts_per_ip", 3), 0);
     }

@@ -174,6 +174,12 @@ public class AuthAuthenticator {
             AuthPrompt.openLater(player, rateLimiter.getRemainingMs(player) + 500L);
             return;
         }
+        // Serialize verifications per account/IP. The cooldown is applied only after
+        // an error, so without this reservation a burst of auth_submit clicks all
+        // passed it and started parallel Argon2 checks before the first result.
+        // Duplicates are dropped silently: the first check is already in flight and
+        // re-opening here would spawn one screen per extra packet.
+        if (!rateLimiter.tryBeginAttempt(player)) return;
 
         String playerIp = getPlayerIp(player);
 
@@ -285,6 +291,14 @@ public class AuthAuthenticator {
                     }
                 });
                 Main.getInstance().getLogger().log(java.util.logging.Level.SEVERE, "[Auth] Async auth error", e);
+            } finally {
+                // Release the in-flight reservation on the main thread, after the
+                // queued result task, so a following submit sees the penalty.
+                try {
+                    Bukkit.getScheduler().runTask(Main.getInstance(), () -> rateLimiter.finishAttempt(player));
+                } catch (Throwable shutdown) {
+                    rateLimiter.finishAttempt(player);
+                }
             }
         });
     }
@@ -479,11 +493,12 @@ public class AuthAuthenticator {
     // WRONG PASSWORD
     // =========================
     private void handleWrongPassword(Player player, UUID uuid) {
-        // Wrong password → lock the account AND the source IP for auth.request_cooldown_seconds
-        rateLimiter.applyPenalty(player);
-        // The counter is persisted: a reconnect (or restart) must not reset it,
-        // otherwise max_wrong_attempts was never reached and brute force ran forever.
+        // The counter is persisted first: the lockout grows with every consecutive
+        // failure (auth.lockout.*), so it has to know the attempt number, and a
+        // reconnect (or restart) must not reset it.
         int attempts = AuthDatabase.incrementFailedAttempts(uuid);
+        // Wrong password → lock the account AND the source IP.
+        rateLimiter.applyPenalty(player, attempts);
         int maxWrong = AuthConfig.getMaxWrongAttempts();
         int remaining = maxWrong - attempts;
 
@@ -629,6 +644,7 @@ public class AuthAuthenticator {
         }
 
         if (!rateLimiter.checkCooldown(player)) return;
+        if (!rateLimiter.tryBeginAttempt(player)) return;
 
         Bukkit.getScheduler().runTaskAsynchronously(Main.getInstance(), () -> {
             try {
@@ -636,7 +652,8 @@ public class AuthAuthenticator {
                 Bukkit.getScheduler().runTask(Main.getInstance(), () -> {
                     if (!player.isOnline()) return;
                     if (!validOld) {
-                        rateLimiter.applyPenalty(player);
+                        int attempts = AuthDatabase.incrementFailedAttempts(uuid);
+                        rateLimiter.applyPenalty(player, attempts);
                         player.sendMessage(MessageUtil.parse(MessagesManager.getString(
                                 "auth.messages.wrong_password",
                                 "<red>❌ Current password is incorrect!</red>")));
@@ -648,6 +665,12 @@ public class AuthAuthenticator {
                 });
             } catch (Exception e) {
                 Main.getInstance().getLogger().log(java.util.logging.Level.SEVERE, "[Auth] Async chgpass verify error", e);
+            } finally {
+                try {
+                    Bukkit.getScheduler().runTask(Main.getInstance(), () -> rateLimiter.finishAttempt(player));
+                } catch (Throwable shutdown) {
+                    rateLimiter.finishAttempt(player);
+                }
             }
         });
     }

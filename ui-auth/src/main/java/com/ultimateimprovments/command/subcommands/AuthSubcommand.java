@@ -189,7 +189,11 @@ public final class AuthSubcommand {
                         "<dark_red>❌</dark_red> <red>Usage: </red><white>/ui auth 2fa setup <github_username></white>"));
                 return true;
             }
-            mgr.setupGithub2FA(uuid, githubAccount);
+            if (!mgr.setupGithub2FA(uuid, githubAccount)) {
+                player.sendMessage(msg("auth.twofa.github_taken",
+                        "<red>❌ This GitHub account is already linked to another player.</red>"));
+                return true;
+            }
             player.sendMessage("");
             player.sendMessage(msg("auth.twofa.setup_title",
                     "<gold>✦ <white>2FA <dark_gray>— <gray>Setup"));
