@@ -3,6 +3,107 @@
 All notable changes to the UltimateImprovments plugin family are documented
 in this file.
 
+## [1.8.5-beta.21] - 2026-11-11
+
+The authentication flow is fully configurable and bilingual, with the latest
+dialog-state fixes, current Paper API calls, and a reproducible Java 26 build.
+
+### Fixed
+- **Submitting a password no longer reopens the login dialog mid-verification.**
+  The prompt tracks an in-flight submission, restores itself after failed
+  attempts, and avoids misleading blocked-action hints during the check.
+- **Authentication dialogs recover when a frozen player has no visible screen.**
+  Closed or missing prompts are re-opened with throttling, including after a
+  password lock expires; the player is told when reconnecting is the fallback.
+- **Logout, self-service password changes, admin password resets and 2FA cancel
+  actions now match their dialog identifiers correctly.** The logout flow closes
+  the confirmation screen and uses a plugin-styled kick reason.
+- **Paper API calls updated** across the plugin modules for the current Paper
+  API, replacing deprecated calls used by the project.
+- Password-submission logs no longer include password length, for either normal
+  authentication or sudo confirmation.
+
+### Changed
+- **Authentication text is configuration-driven in both languages.** The
+  remaining English and Russian strings were moved out of Java code; the
+  `messages` and `messages_en` auth sections now contain matching sets of
+  143 keys, including 2FA, login/registration, logout and admin commands.
+- Authenticator success and challenge messages share the configured message
+  keys, and player/account names are inserted through placeholders rather than
+  concatenated between MiniMessage colour tags.
+- The login dialog's submitted state is tracked separately from its open state,
+  so the client closing the custom screen on submit is not mistaken for a
+  missing authentication prompt.
+
+### Build
+- Removed the machine-specific Windows JDK path from `gradle.properties`.
+- Enabled automatic Java toolchain provisioning and added a Java 26 Gradle
+  build-and-test workflow for all modules.
+- Corrected the executable bit on `gradlew`, so Linux CI can invoke the wrapper.
+
+## [1.8.5-beta.20] - 2026-11-05
+
+Authentication messages can now be translated and edited without recompiling.
+
+### Changed
+- Moved the remaining hardcoded Russian authentication messages into
+  `UI-Auth.toml`, including password-change validation, admin password reset,
+  logout and dialog cancellation messages.
+- Added matching Russian and English keys for the authentication dialog and
+  admin feedback, including player-name placeholders.
+- Fixed English kick messages that contained escaped `\\n` sequences and
+  displayed literal backslash-n text instead of line breaks.
+- Removed Russian fallback literals from the authentication classes; the
+  configuration's language fallback supplies the displayed text.
+
+## [1.8.5-beta.19] - 2026-11-05
+
+Authentication dialog actions and logout handling are reliable.
+
+### Fixed
+- Dialog action identifiers are compared by namespace and path. This fixes
+  logout confirmation, self password change, admin password reset and 2FA
+  cancellation actions that were silently ignored because Paper's Adventure
+  `Key` and the stored Minecraft `Identifier` are different types.
+- Logout closes its confirmation dialog before disconnecting the player and
+  shows a multi-line, plugin-styled reason.
+
+### Changed
+- Added the missing Russian admin authentication messages and aligned the
+  English logout message with the same layout.
+
+## [1.8.5-beta.18] - 2026-11-05
+
+Authentication commands and dialogs gained proper access rules and 2FA UI.
+
+### Added
+- Sender-aware tab completion for `/ui auth`: pre-login players only receive
+  login suggestions; authenticated players receive the available 2FA, logout,
+  password-change and permitted admin subcommands.
+- A login subcommand and bare `/ui auth` shortcut reopen the login dialog for
+  players awaiting authentication.
+- A bilingual GitHub 2FA challenge dialog with an open-URL action and a cancel
+  action that returns the player to the password screen.
+
+### Changed
+- Before authentication, only `/ui auth` and `/ui auth login` pass the command
+  gate. Other authentication and admin actions remain unavailable.
+- Authentication dialogs use the RU/EN message configuration instead of
+  hardcoded Russian text.
+
+## [1.8.5-beta.17] - 2026-11-05
+
+The login prompt now recovers automatically when the client closes or fails to
+display the custom authentication screen.
+
+### Fixed
+- Track whether the authentication dialog is open and throttle re-opening when
+  the client has closed it or failed to render it.
+- Reopen the prompt after rate-limit rejection, failed authentication and when
+  a password lock expires.
+- Route blocked pre-login actions through one prompt-and-hint path, with a
+  reconnect hint when no dialog can be shown.
+
 ## [1.8.5-beta.16] - 2026-11-03
 
 Protection points are fractional now, and the built JARs leave git altogether.
