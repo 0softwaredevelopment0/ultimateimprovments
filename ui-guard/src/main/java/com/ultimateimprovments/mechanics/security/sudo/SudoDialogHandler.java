@@ -64,8 +64,7 @@ public class SudoDialogHandler implements Listener {
             return;
         }
 
-        ConsoleLogger.info("[SudoDialog] Sudo password submitted by " + player.getName()
-            + " (len=" + password.length() + ")");
+        ConsoleLogger.info("[SudoDialog] Sudo password submitted by " + player.getName());
 
         SudoManager manager = SudoManager.getInstance();
         if (manager != null) {

@@ -139,8 +139,7 @@ public class AuthDialogHandler implements Listener {
             return;
         }
 
-        ConsoleLogger.info("[AuthDialog] Password submitted by " + player.getName()
-            + " (len=" + password.length() + ")");
+        ConsoleLogger.info("[AuthDialog] Password submitted by " + player.getName());
 
         // The client has already closed the dialog. Mark the request before delegating
         // so AuthPrompt does not interpret post-submit movement/input as a missing window.
