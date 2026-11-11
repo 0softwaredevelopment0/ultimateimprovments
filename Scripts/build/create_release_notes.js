@@ -49,7 +49,7 @@ if (!started) {
 }
 
 const betaOneHeading = '## [' + prefix + '1]';
-if (!selected.some(line => line.startsWith(betaOneHeading + ']'))) {
+if (!selected.some(line => line.startsWith(betaOneHeading))) {
   throw new Error('Release notes do not include the 1.8.5-beta.1 baseline.');
 }
 
