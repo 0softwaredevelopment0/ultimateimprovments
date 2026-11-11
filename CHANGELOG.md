@@ -3,6 +3,23 @@
 All notable changes to the UltimateImprovments plugin family are documented
 in this file.
 
+## [1.8.5-beta.24] - 2026-11-12
+
+### Fixed
+- **Area enchantments no longer break blocks through walls.** AoE used to be a
+  plain cube scan by material type, so a block sealed inside a solid shell was
+  mined together with the one the player actually hit — placing magma on the
+  outside of a bedrock box and breaking it also mined the magma locked inside.
+  The sweep is now a 6-direction flood fill (`BlockVisibility`) that may only
+  travel through blocks of the same type (they are mined anyway) and through
+  see-through, non-solid blocks (air, water, plants, ...). Any solid block of
+  another type (bedrock, stone, planks, glass, ...) stops the sweep, so only
+  blocks with a real physical path from the broken one are affected. The cube
+  radius limit (±level, capped at 10) is unchanged.
+- VeinMiner (same-ore 6-direction flood fill) and TreeCapitator (same-column
+  scan that stops at the first non-log block) already could not cross walls;
+  their behaviour is unchanged.
+
 ## [1.8.5-beta.23] - 2026-11-11
 
 Follow-up hardening from the external authentication audit (on top of beta.22).

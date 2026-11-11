@@ -2,6 +2,7 @@ package com.ultimateimprovments.enchantment.aoe;
 
 import com.ultimateimprovments.core.hooks.CoreHooks;
 import com.ultimateimprovments.mechanics.features.integrity.ItemDurabilityUtil;
+import com.ultimateimprovments.util.BlockVisibility;
 import com.ultimateimprovments.util.LocationUtil;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -13,9 +14,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.inventory.ItemStack;
-import org.jetbrains.annotations.NotNull;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -23,6 +22,13 @@ import java.util.List;
  * <p>
  * When a player breaks a block with an AoE tool,
  * all blocks of the same type within the radius also break.
+ * <p>
+ * 🛡 <b>No breaking through walls:</b> the sweep is a flood fill that may only
+ * travel through blocks of the same type (they are mined anyway) and through
+ * see-through blocks (air, liquids, plants, ...). A solid block of another type
+ * (bedrock, stone, planks, glass, ...) stops the sweep — blocks sealed behind
+ * it are never touched, even if they match the broken type and lie inside the
+ * radius (see {@link BlockVisibility}).
  * <p>
  * Radius = enchantment level (max 10).
  * Sneaking disables AoE for precise single-block mining.
@@ -48,29 +54,33 @@ public class EnchantmentListener implements Listener {
 
         Block originBlock = event.getBlock();
         Material targetType = originBlock.getType();
-        Location origin = LocationUtil.normalize(originBlock.getLocation());
-        if (origin == null || origin.getWorld() == null) return;
+        World world = originBlock.getWorld();
+        if (world == null) return;
 
         // Skip non-solids, fluids, and instant-break blocks
         // Material#isInteractable() is deprecated as unreliable in Paper 26.3
         // with no replacement — kept deliberately to preserve the AoE filter.
         if (!targetType.isBlock() || targetType.isAir() || targetType.isInteractable()) return;
 
-        World world = origin.getWorld();
         int radius = Math.min(level, Enchantment.MAX_LEVEL); // Clamp to max level
 
-        // Scan and collect matching blocks
-        List<Location> targets = scanBlocks(world, origin, targetType, radius);
+        // 🛡 Collect only the matching blocks REACHABLE from the broken one:
+        // the sweep may pass through the same type and through see-through
+        // blocks, but a solid foreign block stops it. This is what prevents
+        // mining a sealed room through its walls (e.g. magma inside a bedrock box).
+        List<Block> targets = BlockVisibility.collectReachable(world, originBlock, targetType, radius);
 
         if (targets.isEmpty()) return;
 
         // Break all matching blocks (the original one is handled by the event)
-        for (Location loc : targets) {
+        for (Block block : targets) {
             // Skip the original block
-            if (loc.equals(origin)) continue;
+            if (block.equals(originBlock)) continue;
 
-            Block block = world.getBlockAt(loc);
             if (block.getType() != targetType) continue;
+
+            Location loc = LocationUtil.normalize(block.getLocation());
+            if (loc == null || loc.getWorld() == null) continue;
 
             // Check world border
             if (!world.getWorldBorder().isInside(loc)) continue;
@@ -109,42 +119,5 @@ public class EnchantmentListener implements Listener {
             // Tool broke from integrity loss — stop, as vanilla would
             if (tool.getAmount() <= 0) break;
         }
-    }
-
-    /**
-     * Scans a cubic area around {@code origin} for blocks matching {@code targetType}.
-     * 🛡 Limited to a 21×21×21 cube by radius around the origin (not by chunks):
-     * at most ±10 blocks on each axis; at level < 10 the radius is smaller (±level).
-     * Only loaded chunks are scanned.
-     */
-    private @NotNull List<Location> scanBlocks(World world, Location origin,
-                                                Material targetType, int radius) {
-        List<Location> found = new ArrayList<>();
-
-        int ox = origin.getBlockX();
-        int oy = origin.getBlockY();
-        int oz = origin.getBlockZ();
-
-        // 🛡 21×21×21 limit: radius no larger than 10 blocks from the origin on each axis.
-        int r = Math.min(radius, 10);
-        int minX = ox - r;
-        int maxX = ox + r;
-        int minZ = oz - r;
-        int maxZ = oz + r;
-        int minY = Math.max(world.getMinHeight(), oy - r);
-        int maxY = Math.min(world.getMaxHeight() - 1, oy + r);
-
-        for (int x = minX; x <= maxX; x++) {
-            for (int z = minZ; z <= maxZ; z++) {
-                if (!world.isChunkLoaded(x >> 4, z >> 4)) continue;
-                for (int y = minY; y <= maxY; y++) {
-                    if (world.getBlockAt(x, y, z).getType() == targetType) {
-                        found.add(new Location(world, x, y, z));
-                    }
-                }
-            }
-        }
-
-        return found;
     }
 }

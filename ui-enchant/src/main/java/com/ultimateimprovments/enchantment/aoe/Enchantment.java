@@ -57,7 +57,8 @@ public final class Enchantment {
 
     /**
      * Highest useful level: the scan radius is capped at 10 blocks
-     * ({@code EnchantmentListener.scanBlocks}), so levels above 10 change nothing.
+     * ({@link com.ultimateimprovments.util.BlockVisibility#MAX_RADIUS}), so levels
+     * above 10 change nothing.
      */
     public static final int MAX_LEVEL = 10;
 
