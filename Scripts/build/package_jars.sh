@@ -1,16 +1,14 @@
 #!/usr/bin/env bash
-# Packages the UltimateImprovments plugin family into a single distribution archive.
+# Packages the current UltimateImprovments module JARs into one distribution archive.
 #
 # Pipeline:
-#   1. ./gradlew distributeJars  (shadow-only jar assembly; skipped with --no-build)
-#   2. tar the UI-*.jar files    -> build/distribution/UltimateImprovments-<version>-jars.tar
+#   1. ./gradlew distributeJars (skipped with --no-build)
+#   2. tar only UI-*-<version>-all.jar -> build/distribution/UltimateImprovments-<version>-jars.tar
 #
-# Note: NO gzip stage. JARs are already ZIP archives (DEFLATE-compressed inside),
-# so gzipping them shrinks the archive by only ~2-5% while taking minutes of CPU.
-# A plain tar of the .jar files is the right trade-off.
+# JARs are already compressed ZIP files, so the archive is intentionally not gzipped.
 #
-# Usage (from anywhere):
-#   Scripts/build/package_jars.sh [--no-build]
+# Usage:
+#   bash Scripts/build/package_jars.sh [--no-build]
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -19,32 +17,42 @@ cd "$ROOT"
 if [[ "${1:-}" == "--no-build" ]]; then
   echo "[package] Skipping build (--no-build)"
 else
-  echo "[package] Building shadow jars..."
+  echo "[package] Building shadow JARs..."
   ./gradlew distributeJars -q
 fi
 
-if ! ls build/libs/UI-*-all.jar >/dev/null 2>&1; then
-  echo "[package] ERROR: no UI-*-all.jar in build/libs/" >&2
+CORE_JAR="$(find build/libs -maxdepth 1 -type f -name 'UI-Core-*-all.jar' -print -quit)"
+if [[ -z "$CORE_JAR" ]]; then
+  echo "[package] ERROR: UI-Core-*-all.jar not found in build/libs/" >&2
   exit 1
 fi
 
-# Detect the version from the core jar name (UI-Core-<version>-all.jar)
-CORE_JAR="$(ls build/libs/UI-Core-*-all.jar | head -n1)"
-VERSION="$(sed -E 's/.*UI-Core-(.*)-all\.jar/\1/' "$CORE_JAR")"
+# Extract the version from the JAR FILE NAME, never from its binary contents.
+CORE_NAME="${CORE_JAR##*/}"
+VERSION="${CORE_NAME#UI-Core-}"
+VERSION="${VERSION%-all.jar}"
+if [[ -z "$VERSION" || "$VERSION" == "$CORE_NAME" ]]; then
+  echo "[package] ERROR: could not determine version from $CORE_NAME" >&2
+  exit 1
+fi
+
+mapfile -t JARS < <(
+  find build/libs -maxdepth 1 -type f -name "UI-*-${VERSION}-all.jar" -printf '%f\n' | sort
+)
+if (( ${#JARS[@]} == 0 )); then
+  echo "[package] ERROR: no UI JARs found for version $VERSION" >&2
+  exit 1
+fi
 
 STAGE="build/distribution"
 mkdir -p "$STAGE"
+TAR="$STAGE/UltimateImprovments-${VERSION}-jars.tar"
 
-TAR="$STAGE/UltimateImprovments-$VERSION-jars.tar"
-echo "[package] Creating $TAR (version $VERSION, no gzip — JARs are already compressed)..."
-# Only the CURRENT version's jars — build/libs keeps jars of older releases.
-tar -cf "$TAR" -C build/libs UI-*-"$VERSION"-all.jar
+echo "[package] Packaging ${#JARS[@]} JAR(s) for version $VERSION..."
+tar -cf "$TAR" -C build/libs "${JARS[@]}"
 
-# Show the result
 echo "[package] Done:"
 ls -lh "$TAR"
-echo
 sha256sum "$TAR"
-echo
 echo "[package] Archive contents:"
-tar -tvf "$TAR"
+tar -tf "$TAR"
