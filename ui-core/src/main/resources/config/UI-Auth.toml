@@ -59,7 +59,7 @@ common_passwords = [
     "master", "sunshine", "princess", "minecraft", "minecraft123"
 ]
 
-# check ip section.
+# messages section.
 
 [messages.auth]
 
@@ -147,6 +147,8 @@ opening_auth_window = "<yellow>✦</yellow> <gray>Открываю окно ав
 auth_window_error = "<red>❌ Ошибка открытия окна авторизации! Сообщите администратору.</red>"
 # Default: <red>❌ Ошибка проверки пароля! Попробуйте ещё раз.</red>
 auth_check_error = "<red>❌ Ошибка проверки пароля! Попробуйте ещё раз.</red>"
+# Default: <red>❌ Не удалось создать аккаунт — он уже зарегистрирован.</red>\n<gray>Перезайдите и войдите с паролем.</gray>
+register_conflict = "<red>❌ Не удалось создать аккаунт — он уже зарегистрирован.</red>\n<gray>Перезайдите и войдите с паролем.</gray>"
 # Default: <red>❌ Ошибка смены пароля! Попробуйте ещё раз.</red>
 change_password_error = "<red>❌ Ошибка смены пароля! Попробуйте ещё раз.</red>"
 # Default: <green>✔</green> <white>Пароль успешно изменён!</white>
@@ -274,6 +276,8 @@ kick_delsession = "<yellow>✦</yellow> UltimateImprovments\n\n<red>❌ Ваша
 kick_timeout = "<red>⏱ Время входа истекло!</red>\n<gray>Вы не вошли за %seconds% секунд.</gray>"
 # Default: <red>❌ Слишком много неверных попыток!</red>\n<gray>Вы ввели неверный пароль %attempts% раз.</gray>
 kick_too_many_attempts = "<red>❌ Слишком много неверных попыток!</red>\n<gray>Вы ввели неверный пароль %attempts% раз.</gray>"
+# Default: <yellow>✦</yellow> UltimateImprovments\n\n<red>❌ Авторизация временно недоступна.</red>\n<gray>База аккаунтов недоступна. Попробуйте позже или обратитесь к администратору.</gray>
+kick_storage_unavailable = "<yellow>✦</yellow> UltimateImprovments\n\n<red>❌ Авторизация временно недоступна.</red>\n<gray>База аккаунтов недоступна. Попробуйте позже или обратитесь к администратору.</gray>"
 # Default: <yellow>✦</yellow> UltimateImprovments\n\n%details%\n\n
 kick_duplicate_name = "<yellow>✦</yellow> UltimateImprovments\n\n%details%\n\n"
 
@@ -332,6 +336,10 @@ login_2fa_disabled = "<green>✅</green> <white>Вход выполнен (GitHu
 login_2fa_reset = "<green>✅</green> <white>Вход выполнен (2FA сброшена — GitHub не привязан).</white>"
 # Default: <red>❌ GitHub 2FA не настроена! Обратитесь к администратору.</red>
 not_configured = "<red>❌ GitHub 2FA не настроена! Обратитесь к администратору.</red>"
+# Default: <yellow>✦</yellow> UltimateImprovments\n\n<red>❌ Проверка 2FA временно недоступна.</red>\n<gray>База аккаунтов недоступна. Попробуйте позже.</gray>
+storage_error = "<yellow>✦</yellow> UltimateImprovments\n\n<red>❌ Проверка 2FA временно недоступна.</red>\n<gray>База аккаунтов недоступна. Попробуйте позже.</gray>"
+# Default: <yellow>✦</yellow> UltimateImprovments\n\n<red>❌ 2FA включена, но GitHub-аккаунт не привязан.</red>\n<gray>Обратитесь к администратору, чтобы восстановить привязку.</gray>
+binding_missing = "<yellow>✦</yellow> UltimateImprovments\n\n<red>❌ 2FA включена, но GitHub-аккаунт не привязан.</red>\n<gray>Обратитесь к администратору, чтобы восстановить привязку.</gray>"
 # Default: <red>❌ Время 2FA истекло! Перезайдите, чтобы получить новое окно входа.</red>
 timeout = "<red>❌ Время 2FA истекло! Перезайдите, чтобы получить новое окно входа.</red>"
 # Default: <red>❌ Ошибка 2FA! Перезайдите, чтобы получить новое окно входа.</red>
@@ -506,6 +514,8 @@ opening_auth_window = "<yellow>✦</yellow> <gray>Opening authorization window..
 auth_window_error = "<red>❌ Error opening authorization window! Report to an administrator.</red>"
 # Default: <red>❌ Error checking password! Please try again.</red>
 auth_check_error = "<red>❌ Error checking password! Please try again.</red>"
+# Default: <red>❌ Could not create the account — it is already registered.</red>\n<gray>Reconnect and log in with your password.</gray>
+register_conflict = "<red>❌ Could not create the account — it is already registered.</red>\n<gray>Reconnect and log in with your password.</gray>"
 # Default: <red>❌ Password change error! Please try again.</red>
 change_password_error = "<red>❌ Password change error! Please try again.</red>"
 # Default: <green>✔</green> <white>Password successfully changed!</white>
@@ -627,6 +637,8 @@ kick_delsession = "<yellow>✦</yellow> UltimateImprovments\n\n<red>❌ Your ses
 kick_timeout = "<red>⏱ Login timeout!</red>\n<gray>You did not log in within %seconds% seconds.</gray>"
 # Default: <red>❌ Too many incorrect attempts!</red>\n<gray>You entered the wrong password %attempts% times.</gray>
 kick_too_many_attempts = "<red>❌ Too many incorrect attempts!</red>\n<gray>You entered the wrong password %attempts% times.</gray>"
+# Default: <yellow>✦</yellow> UltimateImprovments\n\n<red>❌ Authorization is temporarily unavailable.</red>\n<gray>The account database is unreachable. Try again later or contact an administrator.</gray>
+kick_storage_unavailable = "<yellow>✦</yellow> UltimateImprovments\n\n<red>❌ Authorization is temporarily unavailable.</red>\n<gray>The account database is unreachable. Try again later or contact an administrator.</gray>"
 # Default: <green>✔</green> You have successfully logged out!\n<gray>On next login you will need to enter your password …
 kick_logout = "<yellow>✦</yellow> UltimateImprovments\n\n<red>❌ Session reset.</red>\n<gray>You logged out — enter your password again on the next login.</gray>"
 # Display name (MiniMessage).
@@ -692,6 +704,10 @@ login_2fa_disabled = "<green>✅</green> <white>Logged in (GitHub 2FA is disable
 login_2fa_reset = "<green>✅</green> <white>Logged in (2FA reset — no GitHub account linked).</white>"
 # Default: <red>❌ GitHub 2FA is not configured! Contact an administrator.</red>
 not_configured = "<red>❌ GitHub 2FA is not configured! Contact an administrator.</red>"
+# Default: <yellow>✦</yellow> UltimateImprovments\n\n<red>❌ 2FA verification is temporarily unavailable.</red>\n<gray>The account database is unreachable. Try again later.</gray>
+storage_error = "<yellow>✦</yellow> UltimateImprovments\n\n<red>❌ 2FA verification is temporarily unavailable.</red>\n<gray>The account database is unreachable. Try again later.</gray>"
+# Default: <yellow>✦</yellow> UltimateImprovments\n\n<red>❌ 2FA is enabled but no GitHub account is linked.</red>\n<gray>Contact an administrator to restore the binding.</gray>
+binding_missing = "<yellow>✦</yellow> UltimateImprovments\n\n<red>❌ 2FA is enabled but no GitHub account is linked.</red>\n<gray>Contact an administrator to restore the binding.</gray>"
 # Default: <red>❌ 2FA timeout! Reconnect to get a new login window.</red>
 timeout = "<red>❌ 2FA timeout! Reconnect to get a new login window.</red>"
 # Default: <red>❌ 2FA error! Reconnect to get a new login window.</red>

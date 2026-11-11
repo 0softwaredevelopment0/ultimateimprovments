@@ -18,6 +18,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -49,7 +50,15 @@ public class GithubAuthServer {
 
     private static final Pattern JSON_STRING_PATTERN = Pattern.compile("\"([^\"]+)\"\\s*:\\s*\"([^\"]*)\"");
 
+    /** Max request line size (bytes accepted as characters). */
+    private static final int MAX_REQUEST_LINE = 2048;
+    /** Max total header size of one request. */
+    private static final int MAX_HEADER_BYTES = 8192;
+    /** Max simultaneous connections — one thread per connection would otherwise be a trivial DoS. */
+    private static final int MAX_CONCURRENT_CONNECTIONS = 16;
+
     private final AtomicBoolean running = new AtomicBoolean(false);
+    private final Semaphore connectionSlots = new Semaphore(MAX_CONCURRENT_CONNECTIONS);
     private ServerSocket serverSocket;
     private Thread acceptThread;
 
@@ -118,7 +127,18 @@ public class GithubAuthServer {
         while (running.get()) {
             try {
                 Socket socket = serverSocket.accept();
-                Thread handler = new Thread(() -> handleConnection(socket), "UI-GithubAuth-Conn");
+                if (!connectionSlots.tryAcquire()) {
+                    // Saturated: drop the connection instead of spawning a thread.
+                    try { socket.close(); } catch (Exception ignored) {}
+                    continue;
+                }
+                Thread handler = new Thread(() -> {
+                    try {
+                        handleConnection(socket);
+                    } finally {
+                        connectionSlots.release();
+                    }
+                }, "UI-GithubAuth-Conn");
                 handler.setDaemon(true);
                 handler.start();
             } catch (Exception e) {
@@ -140,6 +160,10 @@ public class GithubAuthServer {
 
             String requestLine = in.readLine();
             if (requestLine == null) return;
+            if (requestLine.length() > MAX_REQUEST_LINE) {
+                sendText(out, 414, "URI Too Long");
+                return;
+            }
 
             String[] parts = requestLine.split(" ");
             if (parts.length < 2 || !"GET".equalsIgnoreCase(parts[0])) {
@@ -148,9 +172,17 @@ public class GithubAuthServer {
             }
             String rawPath = parts[1];
 
-            // Read headers (until an empty line)
+            // Read headers (until an empty line), with a hard size cap: an endless
+            // header stream must not pin a handler thread forever.
             String line;
-            while ((line = in.readLine()) != null && !line.isEmpty()) {}
+            int headerBytes = 0;
+            while ((line = in.readLine()) != null && !line.isEmpty()) {
+                headerBytes += line.length() + 2;
+                if (headerBytes > MAX_HEADER_BYTES) {
+                    sendText(out, 431, "Request Header Fields Too Large");
+                    return;
+                }
+            }
 
             String path = rawPath;
             String query = "";
@@ -381,12 +413,17 @@ public class GithubAuthServer {
     }
 
     private void sendRedirect(OutputStream out, String location) throws Exception {
-        String body = "<html><body><a href=\"" + location + "\">Continue to GitHub</a></body></html>";
+        // Never let a CR/LF from the configured public_url split the response headers.
+        String safeLocation = location == null ? "" : location.replace("\r", "").replace("\n", "");
+        String body = "<html><body><a href=\"" + escapeHtml(safeLocation) + "\">Continue to GitHub</a></body></html>";
         byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
         out.write(("HTTP/1.1 302 Found\r\n"
-                + "Location: " + location + "\r\n"
+                + "Location: " + safeLocation + "\r\n"
                 + "Content-Type: text/html; charset=utf-8\r\n"
                 + "Content-Length: " + bytes.length + "\r\n"
+                + "Cache-Control: no-store\r\n"
+                + "X-Content-Type-Options: nosniff\r\n"
+                + "Referrer-Policy: no-referrer\r\n"
                 + "Connection: close\r\n\r\n").getBytes(StandardCharsets.UTF_8));
         out.write(bytes);
         out.flush();
@@ -399,15 +436,40 @@ public class GithubAuthServer {
                 : statusCode == 403 ? "Forbidden"
                 : statusCode == 404 ? "Not Found"
                 : statusCode == 405 ? "Method Not Allowed"
+                : statusCode == 414 ? "URI Too Long"
+                : statusCode == 431 ? "Request Header Fields Too Large"
                 : "Error";
+        // The body embeds values that come from GitHub (login) and from the config
+        // (linked account) — escape them, this page is rendered in a browser.
         String body = "<html><body style=\"font-family:monospace;margin:40px\"><h2>" + statusCode
-                + " " + reason + "</h2><p>" + text + "</p></body></html>";
+                + " " + reason + "</h2><p>" + escapeHtml(text) + "</p></body></html>";
         byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
         out.write(("HTTP/1.1 " + statusCode + " " + reason + "\r\n"
                 + "Content-Type: text/html; charset=utf-8\r\n"
                 + "Content-Length: " + bytes.length + "\r\n"
+                + "Cache-Control: no-store\r\n"
+                + "X-Content-Type-Options: nosniff\r\n"
+                + "Referrer-Policy: no-referrer\r\n"
                 + "Connection: close\r\n\r\n").getBytes(StandardCharsets.UTF_8));
         out.write(bytes);
         out.flush();
+    }
+
+    /** Minimal HTML escaping for values rendered into the auth pages. */
+    static String escapeHtml(String value) {
+        if (value == null) return "";
+        StringBuilder sb = new StringBuilder(value.length() + 16);
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            switch (c) {
+                case '&' -> sb.append("&amp;");
+                case '<' -> sb.append("&lt;");
+                case '>' -> sb.append("&gt;");
+                case '"' -> sb.append("&quot;");
+                case '\'' -> sb.append("&#39;");
+                default -> sb.append(c);
+            }
+        }
+        return sb.toString();
     }
 }

@@ -3,6 +3,44 @@
 All notable changes to the UltimateImprovments plugin family are documented
 in this file.
 
+## [1.8.5-beta.22] - 2026-11-11
+
+Authentication hardening: the login gate now fails closed, the GitHub second
+factor can no longer be skipped, brute-force protection survives reconnects, and
+the pre-login freeze covers chat and entity/inventory actions.
+
+### Security
+- **2FA can no longer be bypassed by reconnecting.** `last_login` was written
+  right after the password check, so a player could pass the password, leave and
+  rejoin inside the session window and skip the GitHub challenge. The session is
+  now stamped only after full authentication (password + 2FA).
+- **The login gate fails closed.** An unreadable auth table used to let players
+  in unauthenticated; such joins are now refused with a clear kick message.
+- **Account passwords can no longer be overwritten by a storage glitch.** A failed
+  registration read was treated as "not registered" and the registration path used
+  `INSERT OR REPLACE`. Reads now return an explicit unknown state, and registration
+  uses `ON CONFLICT DO NOTHING` and reports a conflict instead of replacing a hash.
+- **2FA never silently disables itself.** A missing GitHub binding or an unreadable
+  2FA row used to delete the protection and log the player in; both cases now
+  refuse the login.
+- **Wrong-password attempts are persisted** in `auth.failed_attempts`, so
+  `max_wrong_attempts` is actually reachable — reconnecting no longer resets it.
+- **Pre-login freeze extended to chat, entity interaction, item pickup/consumption
+  and inventory clicks.** Previously a frozen player could talk in chat.
+- Password-change and admin-reset dialogs now require an authenticated sender
+  (a crafted custom-click packet cannot reach them).
+- Logout/admin password resets keep the stored IP, so `max_accounts_per_ip` cannot
+  be dodged by logging out; `resetauth` also removes the 2FA binding.
+- Offline `forcelogin` is refused (it used to leave a permanent authenticated entry
+  in memory); PBKDF2 verification is constant-time.
+- The built-in GitHub callback server caps concurrent connections, request-line and
+  header sizes, escapes rendered values, and sends `no-store`/`nosniff` headers.
+
+### Fixed
+- Registration is only certified after the row is actually written; a failed hash
+  or insert now reports an error instead of a successful login.
+- `AuthPlayerState` uses concurrent sets — it is read from async chat/command threads.
+
 ## [1.8.5-beta.21] - 2026-11-11
 
 The authentication flow is fully configurable and bilingual, with the latest

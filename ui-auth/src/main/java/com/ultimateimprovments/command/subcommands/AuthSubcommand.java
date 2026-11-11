@@ -183,14 +183,20 @@ public final class AuthSubcommand {
                         "<dark_red>❌</dark_red> <red>You must be logged in to set up 2FA!</red>"));
                 return true;
             }
-            mgr.setupGithub2FA(uuid, args[3]);
+            String githubAccount = args[3].trim();
+            if (githubAccount.isEmpty()) {
+                player.sendMessage(msg("auth.twofa.usage_setup",
+                        "<dark_red>❌</dark_red> <red>Usage: </red><white>/ui auth 2fa setup <github_username></white>"));
+                return true;
+            }
+            mgr.setupGithub2FA(uuid, githubAccount);
             player.sendMessage("");
             player.sendMessage(msg("auth.twofa.setup_title",
                     "<gold>✦ <white>2FA <dark_gray>— <gray>Setup"));
             player.sendMessage(msg("auth.twofa.divider", "<gray>━━━━━━━━━━━━━━━━━━━━━"));
             player.sendMessage(msg("auth.twofa.setup_enabled", "<green>✔ 2FA enabled!"));
             player.sendMessage(msg("auth.twofa.github_account",
-                    "<gray>GitHub account: <white>%account%", "%account%", args[3]));
+                    "<gray>GitHub account: <white>%account%", "%account%", githubAccount));
             player.sendMessage(msg("auth.twofa.login_link_hint",
                     "<gray>On the next login you will receive a GitHub authorization link."));
             player.sendMessage(msg("auth.twofa.divider", "<gray>━━━━━━━━━━━━━━━━━━━━━"));
@@ -388,6 +394,11 @@ public final class AuthSubcommand {
                     "<red>❌ Authorization system is not initialized!</red>"));
             return true;
         }
+        if (!mgr.isAuthenticated(player.getUniqueId())) {
+            player.sendMessage(msg("auth.admin.not_authenticated",
+                    "<red>❌ You are not logged in!</red>"));
+            return true;
+        }
         if (args.length > 2) {
             player.sendMessage(msg("auth.messages.no_password_in_chat",
                     "<yellow>⚠ Do not type passwords in chat — open the password change window.</yellow>"));
@@ -407,6 +418,11 @@ public final class AuthSubcommand {
             return true;
         }
         if (sender instanceof Player player) {
+            if (!isAuthenticated(player)) {
+                player.sendMessage(msg("auth.admin.not_authenticated",
+                        "<red>❌ You are not logged in!</red>"));
+                return true;
+            }
             if (args.length > 2) {
                 player.sendMessage(msg("auth.messages.no_password_in_chat",
                         "<yellow>⚠ Do not type passwords in chat — open the password change window.</yellow>"));

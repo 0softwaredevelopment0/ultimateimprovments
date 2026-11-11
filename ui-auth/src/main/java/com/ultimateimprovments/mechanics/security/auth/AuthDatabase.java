@@ -74,6 +74,12 @@ public class AuthDatabase {
                 st.execute("ALTER TABLE auth ADD COLUMN ip_address TEXT DEFAULT ''");
             } catch (Exception ignored) {}
 
+            // Persistent wrong-password counter. Lives in the account row so
+            // reconnecting (or a server restart) cannot reset max_wrong_attempts.
+            try {
+                st.execute("ALTER TABLE auth ADD COLUMN failed_attempts INTEGER DEFAULT 0");
+            } catch (Exception ignored) {}
+
             // Persistent password lock: one row per account UUID (scope = 'account')
             // and per source IP (scope = 'ip'). Survives restarts and reconnects,
             // so the 30-second cooldown after a wrong password cannot be reset by
@@ -172,7 +178,17 @@ public class AuthDatabase {
     // =========================
     // IS REGISTERED
     // =========================
-    public static boolean isRegistered(UUID uuid) {
+    /**
+     * Reads whether the account exists.
+     * <p>
+     * Returns {@code null} when the database could not be read — callers MUST
+     * treat that as "unknown" and fail closed. Returning {@code false} for a
+     * storage error is what allowed a transient read failure to be mistaken for
+     * "not registered" (and the old {@code INSERT OR REPLACE} registration to
+     * overwrite a foreign password).
+     */
+    public static Boolean isRegisteredOrNull(UUID uuid) {
+        if (!tableReady) return null;
         try (Connection con = DatabaseManager.getConnection();
              PreparedStatement ps = con.prepareStatement(
                      "SELECT 1 FROM auth WHERE uuid = ?")) {
@@ -185,8 +201,13 @@ public class AuthDatabase {
 
         } catch (Exception e) {
             ConsoleLogger.error("[Auth] Check failed: " + e.getMessage());
-            return false;
+            return null;
         }
+    }
+
+    /** Convenience view of {@link #isRegisteredOrNull} — {@code false} when unknown. */
+    public static boolean isRegistered(UUID uuid) {
+        return Boolean.TRUE.equals(isRegisteredOrNull(uuid));
     }
 
     // =========================
@@ -217,7 +238,11 @@ public class AuthDatabase {
     // =========================
     // GET LAST IP
     // =========================
-    public static String getLastIp(UUID uuid) {
+    /**
+     * The stored source IP, or {@code null} when the database could not be read.
+     * Callers that enforce the IP binding must fail closed on {@code null}.
+     */
+    public static String getLastIpOrNull(UUID uuid) {
         try (Connection con = DatabaseManager.getConnection();
              PreparedStatement ps = con.prepareStatement(
                      "SELECT ip_address FROM auth WHERE uuid = ?")) {
@@ -232,8 +257,14 @@ public class AuthDatabase {
 
         } catch (Exception e) {
             ConsoleLogger.error("[Auth] Get IP failed: " + e.getMessage());
-            return "";
+            return null;
         }
+    }
+
+    /** Convenience view of {@link #getLastIpOrNull} — empty string when unknown. */
+    public static String getLastIp(UUID uuid) {
+        String ip = getLastIpOrNull(uuid);
+        return ip != null ? ip : "";
     }
 
     // =========================
@@ -273,23 +304,35 @@ public class AuthDatabase {
     // =========================
     // REGISTER
     // =========================
-    public static void register(UUID uuid, String password, String ip) {
+    /**
+     * Creates a new account row.
+     * <p>
+     * Never overwrites an existing account: a concurrent/failed duplicate
+     * registration is reported as {@code false} instead of replacing the stored
+     * hash (the old {@code INSERT OR REPLACE} made a misread "not registered"
+     * result an account takeover).
+     *
+     * @return {@code true} when a new row was created
+     */
+    public static boolean register(UUID uuid, String password, String ip) {
         String hash = hashArgon2(password);
+        if (hash == null) return false;
 
         try (Connection con = DatabaseManager.getConnection();
              PreparedStatement ps = con.prepareStatement(
-                     "INSERT OR REPLACE INTO auth (uuid, password_hash, salt, last_login, ip_address) VALUES (?, ?, ?, ?, ?)")) {
+                     "INSERT INTO auth (uuid, password_hash, salt, last_login, ip_address, failed_attempts) "
+                             + "VALUES (?, ?, ?, 0, ?, 0) ON CONFLICT(uuid) DO NOTHING")) {
 
             ps.setString(1, uuid.toString());
             ps.setString(2, hash);
             ps.setString(3, "");  // Argon2id hash is self-contained (salt embedded)
-            ps.setLong(4, System.currentTimeMillis());
-            ps.setString(5, ip);
-            ps.executeUpdate();
+            ps.setString(4, ip);
+            return ps.executeUpdate() > 0;
 
         } catch (Exception e) {
             ConsoleLogger.error("[Auth] Register failed: " + e.getMessage());
             ConsoleLogger.error("[Auth] Register stack: " + java.util.Arrays.toString(e.getStackTrace()));
+            return false;
         }
     }
 
@@ -337,10 +380,11 @@ public class AuthDatabase {
     // =========================
     public static boolean changePassword(UUID uuid, String newPassword) {
         String hash = hashArgon2(newPassword);
+        if (hash == null) return false;
 
         try (Connection con = DatabaseManager.getConnection();
              PreparedStatement ps = con.prepareStatement(
-                     "UPDATE auth SET password_hash = ?, salt = ?, last_login = 0, ip_address = '' WHERE uuid = ?")) {
+                     "UPDATE auth SET password_hash = ?, salt = ?, last_login = 0 WHERE uuid = ?")) {
 
             ps.setString(1, hash);
             ps.setString(2, "");
@@ -356,11 +400,16 @@ public class AuthDatabase {
 
     // =========================
     // RESET AUTH (logout) — removes authenticated session, keeps registration
+    //
+    // The stored IP is intentionally kept: it is the key of the per-IP account
+    // limit (max_accounts_per_ip). Wiping it here let a player dodge the limit by
+    // logging out (or by an admin password reset) before registering another
+    // account from the same address.
     // =========================
     public static boolean resetAuth(UUID uuid) {
         try (Connection con = DatabaseManager.getConnection();
              PreparedStatement ps = con.prepareStatement(
-                     "UPDATE auth SET last_login = 0, ip_address = '' WHERE uuid = ?")) {
+                     "UPDATE auth SET last_login = 0 WHERE uuid = ?")) {
 
             ps.setString(1, uuid.toString());
             int updated = ps.executeUpdate();
@@ -373,10 +422,62 @@ public class AuthDatabase {
     }
 
     // =========================
+    // WRONG-PASSWORD COUNTER (persistent)
+    // =========================
+
+    /** Number of wrong passwords since the last successful authentication. */
+    public static int getFailedAttempts(UUID uuid) {
+        if (!tableReady) return 0;
+        try (Connection con = DatabaseManager.getConnection();
+             PreparedStatement ps = con.prepareStatement(
+                     "SELECT failed_attempts FROM auth WHERE uuid = ?")) {
+
+            ps.setString(1, uuid.toString());
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getInt("failed_attempts") : 0;
+            }
+
+        } catch (Exception e) {
+            ConsoleLogger.error("[Auth] Failed-attempt read failed: " + e.getMessage());
+            return 0;
+        }
+    }
+
+    /** Increments and returns the persistent wrong-password counter. */
+    public static int incrementFailedAttempts(UUID uuid) {
+        try (Connection con = DatabaseManager.getConnection();
+             PreparedStatement ps = con.prepareStatement(
+                     "UPDATE auth SET failed_attempts = failed_attempts + 1 WHERE uuid = ?")) {
+
+            ps.setString(1, uuid.toString());
+            ps.executeUpdate();
+
+        } catch (Exception e) {
+            ConsoleLogger.error("[Auth] Failed-attempt write failed: " + e.getMessage());
+        }
+        return getFailedAttempts(uuid);
+    }
+
+    /** Clears the persistent wrong-password counter after a successful login. */
+    public static void resetFailedAttempts(UUID uuid) {
+        try (Connection con = DatabaseManager.getConnection();
+             PreparedStatement ps = con.prepareStatement(
+                     "UPDATE auth SET failed_attempts = 0 WHERE uuid = ?")) {
+
+            ps.setString(1, uuid.toString());
+            ps.executeUpdate();
+
+        } catch (Exception e) {
+            ConsoleLogger.error("[Auth] Failed-attempt reset failed: " + e.getMessage());
+        }
+    }
+
+    // =========================
     // CHANGE PASSWORD SELF (player self-service)
     // =========================
     public static boolean changePasswordSelf(UUID uuid, String newPassword) {
         String hash = hashArgon2(newPassword);
+        if (hash == null) return false;
 
         try (Connection con = DatabaseManager.getConnection();
              PreparedStatement ps = con.prepareStatement(
@@ -467,10 +568,12 @@ public class AuthDatabase {
             char[] chars = password.toCharArray();
             String hash = argon2.hash(ARGON2_ITERATIONS, ARGON2_MEMORY_KIB, ARGON2_PARALLELISM, chars);
             argon2.wipeArray(chars);
-            return hash;
+            // An empty hash used to be stored as-is, locking the account out with
+            // a hash that can never verify. Report the failure to the caller instead.
+            return (hash == null || hash.isEmpty()) ? null : hash;
         } catch (Exception e) {
             ConsoleLogger.error("[Auth] Argon2 hash failed: " + e.getMessage());
-            return "";
+            return null;
         }
     }
 
@@ -509,7 +612,11 @@ public class AuthDatabase {
     private static boolean verifyPbkdf2(String password, String salt, String storedHash) {
         if (salt == null || storedHash == null) return false;
         String computedHash = hashPbkdf2(password, salt);
-        return storedHash.equals(computedHash);
+        // Constant-time comparison — a plain String.equals leaks the shared prefix
+        // through timing on every legacy login.
+        return java.security.MessageDigest.isEqual(
+                storedHash.getBytes(StandardCharsets.UTF_8),
+                computedHash.getBytes(StandardCharsets.UTF_8));
     }
 
     // =========================
@@ -518,6 +625,7 @@ public class AuthDatabase {
     private static void upgradeToArgon2(UUID uuid, String password) {
         try {
             String newHash = hashArgon2(password);
+            if (newHash == null) return;
             try (Connection con = DatabaseManager.getConnection();
                  PreparedStatement ps = con.prepareStatement(
                          "UPDATE auth SET password_hash = ?, salt = ? WHERE uuid = ?")) {

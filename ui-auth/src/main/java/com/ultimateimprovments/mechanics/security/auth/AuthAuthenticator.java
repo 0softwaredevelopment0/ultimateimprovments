@@ -76,16 +76,32 @@ public class AuthAuthenticator {
 
         if (playerState.isAuthenticated(uuid)) return;
 
+        // Fail closed: with no auth table an account can neither be read nor
+        // verified, so letting the player through would disable the whole gate.
         if (!AuthDatabase.isTableReady()) {
-            ConsoleLogger.warn("[Auth] DB not ready — skipping auth for " + player.getName());
+            ConsoleLogger.warn("[Auth] DB not ready — refusing auth for " + player.getName());
+            kickStorageUnavailable(player);
             return;
         }
 
-        boolean registered = AuthDatabase.isRegistered(uuid);
+        Boolean registeredOrNull = AuthDatabase.isRegisteredOrNull(uuid);
+        if (registeredOrNull == null) {
+            ConsoleLogger.warn("[Auth] Registration read failed — refusing auth for " + player.getName());
+            kickStorageUnavailable(player);
+            return;
+        }
+        boolean registered = registeredOrNull;
 
         if (registered) {
             if (AuthConfig.isIpCheckEnabled()) {
-                String lastIp = AuthDatabase.getLastIp(uuid);
+                String lastIp = AuthDatabase.getLastIpOrNull(uuid);
+                if (lastIp == null) {
+                    // Cannot compare the session IP — fail closed instead of skipping
+                    // the binding on a transient read failure.
+                    ConsoleLogger.warn("[Auth] IP read failed — refusing auth for " + player.getName());
+                    kickStorageUnavailable(player);
+                    return;
+                }
                 String currentIp = getPlayerIp(player);
 
                 if (!lastIp.isEmpty() && !lastIp.equals(currentIp)) {
@@ -164,7 +180,18 @@ public class AuthAuthenticator {
         // Argon2id on an async thread — prevents server freezes
         Bukkit.getScheduler().runTaskAsynchronously(Main.getInstance(), () -> {
             try {
-                boolean registered = AuthDatabase.isRegistered(uuid);
+                Boolean registeredOrNull = AuthDatabase.isRegisteredOrNull(uuid);
+                if (registeredOrNull == null) {
+                    Bukkit.getScheduler().runTask(Main.getInstance(), () -> {
+                        if (!player.isOnline()) return;
+                        player.sendMessage(MessageUtil.parse(MessagesManager.getString(
+                                "auth.messages.auth_check_error",
+                                "<red>❌ Error checking password! Please try again.</red>")));
+                        sendChatPromptAfterError(player);
+                    });
+                    return;
+                }
+                boolean registered = registeredOrNull;
 
                 if (registered) {
                     boolean passwordValid = AuthDatabase.checkPassword(uuid, password);
@@ -216,11 +243,27 @@ public class AuthAuthenticator {
                     }
 
                     // hashArgon2 on an async thread (32MB memory)
-                    AuthDatabase.register(uuid, password, playerIp);
+                    boolean created = AuthDatabase.register(uuid, password, playerIp);
+                    if (!created) {
+                        // The row already exists (a concurrent submit or a previous
+                        // session) or the write failed. Never certify an account
+                        // that was not actually created.
+                        Bukkit.getScheduler().runTask(Main.getInstance(), () -> {
+                            if (!player.isOnline()) return;
+                            player.sendMessage("");
+                            player.sendMessage(MessageUtil.parse(MessagesManager.getString(
+                                    "auth.messages.register_conflict",
+                                    "<red>❌ Could not create the account — it is already registered.</red>\n"
+                                            + "<gray>Reconnect and log in with your password.</gray>")));
+                            player.sendMessage("");
+                            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.3f, 0.8f);
+                            sendChatPromptAfterError(player);
+                        });
+                        return;
+                    }
 
                     Bukkit.getScheduler().runTask(Main.getInstance(), () -> {
                         if (!player.isOnline()) return;
-                        playerState.resetWrongAttempts(uuid);
                         authenticatePlayer(player, MessagesManager.getString("auth.messages.success_register",
                                 "<green>✔ Registration successful!</green>"));
 
@@ -269,13 +312,25 @@ public class AuthAuthenticator {
             }
         }
 
-        AuthDatabase.updateLastLogin(uuid);
-        playerState.resetWrongAttempts(uuid);
+        // The password is verified — clear the persistent wrong-password counter.
+        // NOTE: last_login is written only after FULL authentication (inside
+        // authenticatePlayer). Writing it here made a reconnect within the session
+        // window skip the 2FA challenge entirely.
+        AuthDatabase.resetFailedAttempts(uuid);
 
         // If 2FA is enabled — start a challenge instead of full authentication
-        if (Auth2FA.isEnabled(uuid) && AuthConfig.isGithub2FAEnabled()) {
-            start2FAChallenge(player);
-            return;
+        if (AuthConfig.isGithub2FAEnabled()) {
+            Auth2FA.TwoFAState state = Auth2FA.getState(uuid);
+            if (state == Auth2FA.TwoFAState.ERROR) {
+                // Fail closed: an unreadable 2FA row must not downgrade the account.
+                ConsoleLogger.warn("[Auth] 2FA state unreadable for " + player.getName() + " — refusing login.");
+                kickTwoFactorUnavailable(player, "storage_error");
+                return;
+            }
+            if (state == Auth2FA.TwoFAState.ENABLED) {
+                start2FAChallenge(player);
+                return;
+            }
         }
 
         authenticatePlayer(player, MessagesManager.getString("auth.messages.success_login",
@@ -294,12 +349,27 @@ public class AuthAuthenticator {
             return;
         }
 
+        Auth2FA.TwoFAState state = Auth2FA.getState(uuid);
+        if (state == Auth2FA.TwoFAState.ERROR) {
+            // Fail closed — see handleLoginSuccess.
+            ConsoleLogger.warn("[Auth2FA] 2FA state unreadable for " + player.getName() + " — refusing login.");
+            kickTwoFactorUnavailable(player, "storage_error");
+            return;
+        }
+        if (state == Auth2FA.TwoFAState.DISABLED) {
+            authenticatePlayer(player, MessagesManager.getString("auth.twofa.login_2fa_disabled",
+                    "<green>✅</green> <white>Logged in (GitHub 2FA is disabled).</white>"));
+            return;
+        }
+
         String githubUsername = Auth2FA.getGithubUsername(uuid);
-        if (githubUsername == null || githubUsername.isEmpty()) {
-            // No linked GitHub — disable 2FA and let them in without confirmation
-            Auth2FA.remove(uuid);
-            authenticatePlayer(player, MessagesManager.getString("auth.twofa.login_2fa_reset",
-                    "<green>✅</green> <white>Logged in (2FA reset — no GitHub account linked).</white>"));
+        if (githubUsername == null || githubUsername.isBlank()) {
+            // 2FA is ON but the binding is missing/unreadable. Never delete the
+            // protection and let the player in: that used to turn a broken row (or
+            // a DB error) into a full 2FA bypass. Only /ui auth 2fa disable removes it.
+            ConsoleLogger.warn("[Auth2FA] 2FA enabled but no GitHub account linked for "
+                    + player.getName() + " — refusing login.");
+            kickTwoFactorUnavailable(player, "binding_missing");
             return;
         }
 
@@ -400,8 +470,7 @@ public class AuthAuthenticator {
         if (Auth2FA.getInstance() == null || !Auth2FA.getInstance().hasPendingConfirmation(uuid)) return;
 
         Auth2FA.getInstance().clearPending(uuid);
-        AuthDatabase.updateLastLogin(uuid); // session 1 hour from the confirmation
-
+        // authenticatePlayer stamps last_login — only a completed 2FA may extend the session.
         authenticatePlayer(player, MessagesManager.getString("auth.twofa.approved_complete",
                 "<green>✅</green> <white>GitHub authorization successful! Welcome.</white>"));
     }
@@ -412,7 +481,9 @@ public class AuthAuthenticator {
     private void handleWrongPassword(Player player, UUID uuid) {
         // Wrong password → lock the account AND the source IP for auth.request_cooldown_seconds
         rateLimiter.applyPenalty(player);
-        int attempts = playerState.incrementWrongAttempts(uuid);
+        // The counter is persisted: a reconnect (or restart) must not reset it,
+        // otherwise max_wrong_attempts was never reached and brute force ran forever.
+        int attempts = AuthDatabase.incrementFailedAttempts(uuid);
         int maxWrong = AuthConfig.getMaxWrongAttempts();
         int remaining = maxWrong - attempts;
 
@@ -445,7 +516,10 @@ public class AuthAuthenticator {
         savePlayerIp(player);
 
         timeoutManager.cancelLoginTimeout(uuid);
-        playerState.resetWrongAttempts(uuid);
+        // Full authentication reached (password + 2FA when enabled): only now may
+        // the session window start. This is the write that handleJoin trusts.
+        AuthDatabase.updateLastLogin(uuid);
+        AuthDatabase.resetFailedAttempts(uuid);
         // The auth screen is gone for good — drop the prompt bookkeeping.
         AuthPrompt.removePlayer(uuid);
 
@@ -462,14 +536,18 @@ public class AuthAuthenticator {
     }
 
     // =========================
-    // SELF CHANGE PASSWORD via /ui auth chgpass <old> <new>
+    // SELF CHANGE PASSWORD (already-authenticated player only)
     // hashArgon2 is called on an async thread
-    //
-    // Note: the chat interface requires <old_password>. If called without arguments,
-    // the caller must pass an empty string or report usage.
     // =========================
-    public void handleSelfChangePassword(Player player, String newPassword) {
+    private void handleSelfChangePassword(Player player, String newPassword) {
         UUID uuid = player.getUniqueId();
+
+        if (!playerState.isAuthenticated(uuid)) {
+            player.sendMessage(MessageUtil.parse(MessagesManager.getString(
+                    "auth.admin.not_authenticated",
+                    "<red>❌ You are not logged in!</red>")));
+            return;
+        }
 
         String policyError = PasswordPolicy.validate(newPassword);
         if (policyError != null) {
@@ -480,13 +558,21 @@ public class AuthAuthenticator {
         // hashArgon2 on an async thread (32MB memory)
         Bukkit.getScheduler().runTaskAsynchronously(Main.getInstance(), () -> {
             try {
-                AuthDatabase.changePasswordSelf(uuid, newPassword);
+                boolean changed = AuthDatabase.changePasswordSelf(uuid, newPassword);
 
                 Bukkit.getScheduler().runTask(Main.getInstance(), () -> {
                     if (!player.isOnline()) return;
 
+                    if (!changed) {
+                        player.sendMessage(MessageUtil.parse(MessagesManager.getString(
+                                "auth.messages.change_password_error",
+                                "<red>❌ Password change error! Please try again.</red>")));
+                        return;
+                    }
+
                     playerState.setAuthenticated(uuid);
                     savePlayerIp(player);
+                    AuthDatabase.resetFailedAttempts(uuid);
 
                     unfreezePlayer(player);
 
@@ -520,6 +606,15 @@ public class AuthAuthenticator {
      */
     public void handleSelfChangePassword(Player player, String oldPassword, String newPassword) {
         UUID uuid = player.getUniqueId();
+
+        // Defence in depth: a crafted custom-click packet must not reach the
+        // password change of a player who has not passed authentication yet.
+        if (!playerState.isAuthenticated(uuid)) {
+            player.sendMessage(MessageUtil.parse(MessagesManager.getString(
+                    "auth.admin.not_authenticated",
+                    "<red>❌ You are not logged in!</red>")));
+            return;
+        }
 
         String policyError = PasswordPolicy.validate(newPassword);
         if (policyError != null) {
@@ -678,6 +773,43 @@ public class AuthAuthenticator {
                         + ": " + t.getMessage());
             }
         }
+    }
+
+    // =========================
+    // FAIL-CLOSED KICKS
+    // =========================
+    /**
+     * Refuses the login when the auth database cannot be read. Letting the player
+     * through ("skipping auth") would disable the password gate entirely.
+     */
+    private void kickStorageUnavailable(Player player) {
+        timeoutManager.cancelLoginTimeout(player.getUniqueId());
+        AuthDialogScreen.close(player);
+        player.kick(MessageUtil.parse(MessagesManager.getString(
+                "auth.admin.kick_storage_unavailable",
+                "<yellow>✦</yellow> UltimateImprovments\n\n"
+                        + "<red>❌ Authorization is temporarily unavailable.</red>\n"
+                        + "<gray>The account database is unreachable. Try again later or contact an administrator.</gray>")));
+    }
+
+    /**
+     * Refuses the login when 2FA is enabled but cannot be verified (DB error or a
+     * missing GitHub binding). Never silently disables the second factor.
+     */
+    private void kickTwoFactorUnavailable(Player player, String reason) {
+        timeoutManager.cancelLoginTimeout(player.getUniqueId());
+        AuthDialogScreen.close(player);
+
+        boolean missingBinding = "binding_missing".equals(reason);
+        String key = missingBinding ? "auth.twofa.binding_missing" : "auth.twofa.storage_error";
+        String def = missingBinding
+                ? "<yellow>✦</yellow> UltimateImprovments\n\n"
+                        + "<red>❌ 2FA is enabled but no GitHub account is linked.</red>\n"
+                        + "<gray>Contact an administrator to restore the binding.</gray>"
+                : "<yellow>✦</yellow> UltimateImprovments\n\n"
+                        + "<red>❌ 2FA verification is temporarily unavailable.</red>\n"
+                        + "<gray>The account database is unreachable. Try again later.</gray>";
+        player.kick(MessageUtil.parse(MessagesManager.getString(key, def)));
     }
 
     // =========================

@@ -97,18 +97,35 @@ public class Auth2FA {
     // =========================
     // GET/SET 2FA SETTINGS
     // =========================
-    public static boolean isEnabled(UUID uuid) {
+
+    /** Outcome of a 2FA lookup. {@link #ERROR} must be treated as "deny login". */
+    public enum TwoFAState { ENABLED, DISABLED, ERROR }
+
+    /**
+     * Tri-state 2FA lookup.
+     * <p>
+     * A database failure must never be read as "2FA off": that silently turned a
+     * storage error into a 2FA bypass for every protected account.
+     */
+    public static TwoFAState getState(UUID uuid) {
         try (Connection con = DatabaseManager.getConnection();
              PreparedStatement ps = con.prepareStatement(
                      "SELECT enabled FROM auth_2fa WHERE uuid = ?")) {
 
             ps.setString(1, uuid.toString());
             try (ResultSet rs = ps.executeQuery()) {
-                return rs.next() && rs.getInt("enabled") == 1;
+                if (!rs.next()) return TwoFAState.DISABLED;
+                return rs.getInt("enabled") == 1 ? TwoFAState.ENABLED : TwoFAState.DISABLED;
             }
         } catch (Exception e) {
-            return false;
+            ConsoleLogger.warn("[Auth2FA] 2FA state read failed for " + uuid + ": " + e.getMessage());
+            return TwoFAState.ERROR;
         }
+    }
+
+    /** Convenience view of {@link #getState} for display paths (unknown = off). */
+    public static boolean isEnabled(UUID uuid) {
+        return getState(uuid) == TwoFAState.ENABLED;
     }
 
     /** The player's linked GitHub username (or null). */

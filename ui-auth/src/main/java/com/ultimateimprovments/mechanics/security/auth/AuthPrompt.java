@@ -143,7 +143,11 @@ public final class AuthPrompt {
     public static void openNow(Player player) {
         if (player == null || !player.isOnline()) return;
         if (!needsPrompt(player)) return;
-        AuthDialogScreen.open(player, AuthDatabase.isRegistered(player.getUniqueId()));
+        Boolean registered = AuthDatabase.isRegisteredOrNull(player.getUniqueId());
+        // Unknown state (DB error) — the join path kicks such players; do not guess
+        // a dialog mode from a failed read.
+        if (registered == null) return;
+        AuthDialogScreen.open(player, registered);
     }
 
     /**

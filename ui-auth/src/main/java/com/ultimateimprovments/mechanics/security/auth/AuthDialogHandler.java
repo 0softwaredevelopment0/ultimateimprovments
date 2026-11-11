@@ -70,6 +70,15 @@ public class AuthDialogHandler implements Listener {
 
         // ─── Self password change (old + new password) ───
         if (AuthDialogs.matches(identifier, AuthDialogs.CHANGEPASS_SUBMIT)) {
+            // The dialog id is client-reported: a crafted custom-click packet must
+            // not reach the password change of an unauthenticated player.
+            AuthManager manager = AuthManager.getInstance();
+            if (manager == null || !manager.isAuthenticated(player.getUniqueId())) {
+                player.sendMessage(MessageUtil.parse(MessagesManager.getString(
+                        "auth.admin.not_authenticated",
+                        "<red>❌ You are not logged in!</red>")));
+                return;
+            }
             DialogResponseView response = event.getDialogResponseView();
             if (response == null) return;
             String oldPassword = response.getText(AuthDialogs.KEY_OLD);
@@ -93,6 +102,13 @@ public class AuthDialogHandler implements Listener {
 
         // ─── Admin password reset (nickname + new password) ───
         if (AuthDialogs.matches(identifier, AuthDialogs.CHGPASS_SUBMIT)) {
+            AuthManager manager = AuthManager.getInstance();
+            if (manager == null || !manager.isAuthenticated(player.getUniqueId())) {
+                player.sendMessage(MessageUtil.parse(MessagesManager.getString(
+                        "auth.admin.not_authenticated",
+                        "<red>❌ You are not logged in!</red>")));
+                return;
+            }
             if (!player.hasPermission("ui.command.auth.chgpass")) {
                 CommandErrors.noPermission(player, "ui.command.auth.chgpass");
                 return;

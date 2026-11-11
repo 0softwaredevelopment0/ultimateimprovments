@@ -2,8 +2,6 @@ package com.ultimateimprovments.mechanics.security.auth;
 
 import org.bukkit.entity.Player;
 
-import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -14,15 +12,17 @@ import java.util.concurrent.ConcurrentHashMap;
  * Stores:
  * - Who is already authenticated (authenticated)
  * - Who is awaiting authentication (pendingAuth)
- * - Counter of wrong password attempts (wrongAttempts)
+ * <p>
+ * The wrong-password counter is no longer kept here: it lives in the database
+ * ({@code auth.failed_attempts}) so a reconnect cannot reset it. Both sets are
+ * concurrent — they are read from async event threads (chat, commands).
  */
 public class AuthPlayerState {
 
     private static AuthPlayerState instance;
 
-    private final Set<UUID> authenticated = new HashSet<>();
-    private final Set<UUID> pendingAuth = new HashSet<>();
-    private final Map<UUID, Integer> wrongAttempts = new ConcurrentHashMap<>();
+    private final Set<UUID> authenticated = ConcurrentHashMap.newKeySet();
+    private final Set<UUID> pendingAuth = ConcurrentHashMap.newKeySet();
 
     public AuthPlayerState() {
         instance = this;
@@ -67,29 +67,11 @@ public class AuthPlayerState {
     }
 
     // =========================
-    // WRONG ATTEMPTS
-    // =========================
-    public int getWrongAttempts(UUID uuid) {
-        return wrongAttempts.getOrDefault(uuid, 0);
-    }
-
-    public int incrementWrongAttempts(UUID uuid) {
-        int attempts = wrongAttempts.getOrDefault(uuid, 0) + 1;
-        wrongAttempts.put(uuid, attempts);
-        return attempts;
-    }
-
-    public void resetWrongAttempts(UUID uuid) {
-        wrongAttempts.remove(uuid);
-    }
-
-    // =========================
     // FULL CLEANUP
     // =========================
     public void removePlayer(UUID uuid) {
         authenticated.remove(uuid);
         pendingAuth.remove(uuid);
-        wrongAttempts.remove(uuid);
     }
 
     // =========================

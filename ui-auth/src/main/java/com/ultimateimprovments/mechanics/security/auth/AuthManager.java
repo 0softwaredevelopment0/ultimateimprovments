@@ -146,23 +146,29 @@ public class AuthManager {
     // FORCE LOGIN (admin command)
     // =========================
     public boolean forceLogin(UUID uuid, String targetName, String actorName) {
-        if (!AuthDatabase.isRegistered(uuid)) return false;
+        Boolean registered = AuthDatabase.isRegisteredOrNull(uuid);
+        if (!Boolean.TRUE.equals(registered)) return false;
 
         org.bukkit.entity.Player player = org.bukkit.Bukkit.getPlayer(uuid);
         boolean online = player != null && player.isOnline();
+        // An offline "force login" used to leave a permanent authenticated entry in
+        // memory (nothing removes it without a quit event), so the account skipped
+        // the password on its next join. Only a live player can be force-logged-in.
+        if (!online) {
+            ConsoleLogger.warn("[Auth] forceLogin refused: " + targetName + " is offline (" + actorName + ")");
+            return false;
+        }
 
         // Privileged authentication bypass — always leave a trace in the console.
         ConsoleLogger.warn("[Auth] forceLogin: " + actorName + " force-logged-in " + targetName
-                + " (" + uuid + ", online=" + online + ")");
+                + " (" + uuid + ")");
 
         playerState.setAuthenticated(uuid);
         AuthDatabase.updateLastLogin(uuid);
 
-        if (online) {
-            player.closeInventory();
-            authenticator.restorePlayerState(player);
-            player.sendMessage(MessageUtil.parse(MessagesManager.getString("auth.messages.force_login_message", "<green>✔</green> <white>You have been force authorized by an administrator!</white>")));
-        }
+        player.closeInventory();
+        authenticator.restorePlayerState(player);
+        player.sendMessage(MessageUtil.parse(MessagesManager.getString("auth.messages.force_login_message", "<green>✔</green> <white>You have been force authorized by an administrator!</white>")));
         return true;
     }
 
@@ -170,10 +176,15 @@ public class AuthManager {
     // RESET AUTH (admin command)
     // =========================
     public boolean resetAuth(UUID uuid) {
-        if (!AuthDatabase.isRegistered(uuid)) return false;
+        Boolean registered = AuthDatabase.isRegisteredOrNull(uuid);
+        if (!Boolean.TRUE.equals(registered)) return false;
 
         playerState.removePlayer(uuid);
         AuthDatabase.deleteRegistration(uuid);
+        // A full registration reset must also drop the 2FA binding: otherwise the
+        // next registration (possibly by another person) silently keeps the old
+        // GitHub account as the second factor.
+        Auth2FA.remove(uuid);
 
         org.bukkit.entity.Player player = org.bukkit.Bukkit.getPlayer(uuid);
         if (player != null && player.isOnline()) {
@@ -188,7 +199,8 @@ public class AuthManager {
     // CHANGE PASSWORD (admin)
     // =========================
     public boolean changePassword(UUID uuid, String newPassword) {
-        if (!AuthDatabase.isRegistered(uuid)) return false;
+        Boolean registered = AuthDatabase.isRegisteredOrNull(uuid);
+        if (!Boolean.TRUE.equals(registered)) return false;
         if (!PasswordPolicy.isAcceptable(newPassword)) return false;
 
         boolean updated = AuthDatabase.changePassword(uuid, newPassword);
@@ -202,7 +214,8 @@ public class AuthManager {
     // DELETE SESSION (admin)
     // =========================
     public boolean deleteSession(UUID uuid) {
-        if (!AuthDatabase.isRegistered(uuid)) return false;
+        Boolean registered = AuthDatabase.isRegisteredOrNull(uuid);
+        if (!Boolean.TRUE.equals(registered)) return false;
 
         playerState.removePlayer(uuid);
         AuthDatabase.resetAuth(uuid);
@@ -214,13 +227,6 @@ public class AuthManager {
             player.kick(MessageUtil.parse(kickMsg));
         }
         return true;
-    }
-
-    // =========================
-    // SELF CHANGE PASSWORD
-    // =========================
-    public void handleSelfChangePassword(Player player, String newPassword) {
-        authenticator.handleSelfChangePassword(player, newPassword);
     }
 
     // =========================

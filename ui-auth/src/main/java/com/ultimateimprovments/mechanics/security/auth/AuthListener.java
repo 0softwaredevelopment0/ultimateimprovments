@@ -3,12 +3,15 @@ package com.ultimateimprovments.mechanics.security.auth;
 import com.ultimateimprovments.core.Main;
 import com.ultimateimprovments.config.MessagesManager;
 import com.ultimateimprovments.util.MessageUtil;
+import io.papermc.paper.event.player.AsyncChatEvent;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.entity.EntityPickupItemEvent;
+import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.*;
 
 import java.util.UUID;
@@ -203,6 +206,65 @@ public class AuthListener implements Listener {
     @EventHandler(priority = EventPriority.LOWEST)
     public void onPlayerDropItem(PlayerDropItemEvent event) {
         Player player = event.getPlayer();
+        if (!needsAuth(player)) return;
+        blockAndPrompt(event, player);
+    }
+
+    // =========================
+    // BLOCK CHAT if not authed
+    //
+    // Chat is asynchronous, so the prompt (which talks to the client and may
+    // re-open the auth screen) is scheduled on the main thread.
+    // =========================
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
+    public void onPlayerChat(AsyncChatEvent event) {
+        Player player = event.getPlayer();
+        if (!needsAuth(player)) return;
+
+        event.setCancelled(true);
+        org.bukkit.Bukkit.getScheduler().runTask(Main.getInstance(), () -> {
+            if (player.isOnline()) {
+                AuthPrompt.onBlockedAction(player);
+            }
+        });
+    }
+
+    // =========================
+    // BLOCK ENTITY INTERACTION if not authed (item frames, villagers, boats, ...)
+    // =========================
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
+    public void onInteractEntity(PlayerInteractEntityEvent event) {
+        Player player = event.getPlayer();
+        if (!needsAuth(player)) return;
+        blockAndPrompt(event, player);
+    }
+
+    // =========================
+    // BLOCK ITEM PICKUP if not authed
+    // =========================
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
+    public void onItemPickup(EntityPickupItemEvent event) {
+        if (!(event.getEntity() instanceof Player player)) return;
+        if (!needsAuth(player)) return;
+        blockAndPrompt(event, player);
+    }
+
+    // =========================
+    // BLOCK CONSUMING ITEMS if not authed
+    // =========================
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
+    public void onItemConsume(PlayerItemConsumeEvent event) {
+        Player player = event.getPlayer();
+        if (!needsAuth(player)) return;
+        blockAndPrompt(event, player);
+    }
+
+    // =========================
+    // BLOCK INVENTORY CLICKS if not authed
+    // =========================
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
+    public void onInventoryClick(InventoryClickEvent event) {
+        if (!(event.getWhoClicked() instanceof Player player)) return;
         if (!needsAuth(player)) return;
         blockAndPrompt(event, player);
     }
