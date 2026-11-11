@@ -48,9 +48,9 @@ if (!started) {
   throw new Error('No CHANGELOG.md section found for ' + version + '.');
 }
 
-const betaOneHeading = '## [' + prefix + '1]';
-if (!selected.some(line => line.startsWith(betaOneHeading + ']'))) {
-  throw new Error('Release notes do not include the 1.8.5-beta.1 baseline.');
+const betaOneHeading = '## [' + prefix + '1';
+if (!selected.some(line => line.startsWith(betaOneHeading))) {
+  throw new Error('Release notes do not include the ' + prefix + '1 baseline.');
 }
 
 const notes = selected.join('\n').trim();
