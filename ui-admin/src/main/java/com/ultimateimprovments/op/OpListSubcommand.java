@@ -5,6 +5,7 @@ import com.ultimateimprovments.util.MessageUtil;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
+import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
@@ -18,6 +19,9 @@ import java.util.List;
  * Usage:
  *   /ui oplist          — show page 1
  *   /ui oplist <page>   — show specific page
+ * <p>
+ * All player-facing text is localized in UI-Admin.toml under {@code messages.op.list}
+ * / {@code messages_en.op.list}.
  */
 public final class OpListSubcommand {
 
@@ -37,9 +41,8 @@ public final class OpListSubcommand {
             try {
                 page = Integer.parseInt(args[1]);
             } catch (NumberFormatException ignored) {
-                sender.sendMessage(MessageUtil.parse(
-                        "<red>Usage: </red><white>/ui oplist <page></white>"
-                ));
+                OpMessages.send(sender, "list.usage",
+                        "<red>Usage: </red><white>/ui oplist <page></white>");
                 return true;
             }
         }
@@ -83,28 +86,32 @@ public final class OpListSubcommand {
         sender.sendMessage(MessageUtil.parse(
                 "<dark_gray>┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓</dark_gray>"
         ));
-        sender.sendMessage(MessageUtil.parse(
-                "<dark_gray>┃</dark_gray> <gold>✦</gold> <white>Operator List</white> <gray>— Page " + page + "/" + totalPages + "</gray>"
-        ));
-        sender.sendMessage(MessageUtil.parse(
-                "<dark_gray>┃</dark_gray> <gray>Total: </gray><white>" + totalEntries + "</white><gray> | Online OPs: </gray><gold>" + onlineOpCount + "</gold>"
-        ));
+        OpMessages.sendRow(sender, "list.title",
+                "<gold>✦</gold> <white>Operator List</white> <gray>— Page %page%/%pages%</gray>",
+                "%page%", String.valueOf(page),
+                "%pages%", String.valueOf(totalPages));
+        OpMessages.sendRow(sender, "list.totals",
+                "<gray>Total: </gray><white>%total%</white><gray> | Online OPs: </gray><gold>%online%</gold>",
+                "%total%", String.valueOf(totalEntries),
+                "%online%", String.valueOf(onlineOpCount));
         if (listOnlyCount > 0 || opOnlyCount > 0) {
-            sender.sendMessage(MessageUtil.parse(
-                    "<dark_gray>┃</dark_gray> <red>⚠ Drift:</red> <yellow>" + listOnlyCount
-                            + "</yellow> <gray>list-only,</gray> <yellow>" + opOnlyCount
-                            + "</yellow> <gray>op-only — </gray><white>/ui op \\<player\\></white><gray> repairs</gray>"
-            ));
+            OpMessages.sendRow(sender, "list.drift",
+                    "<red>⚠ Drift:</red> <yellow>%list_only%</yellow> <gray>list-only,</gray> <yellow>%op_only%</yellow> <gray>op-only — </gray><white>/ui op \\<player\\></white><gray> repairs</gray>",
+                    "%list_only%", String.valueOf(listOnlyCount),
+                    "%op_only%", String.valueOf(opOnlyCount));
         }
         sender.sendMessage(MessageUtil.parse(
                 "<dark_gray>┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫</dark_gray>"
         ));
 
         // ─── Entries ───
+        String tagOp = OpMessages.raw("list.tag_op", " <gold>[OP]</gold>");
+        String tagListOnly = OpMessages.raw("list.tag_list_only", " <red>⚠ list-only</red>");
+        String tagOffline = OpMessages.raw("list.tag_offline", " <dark_gray>(offline)</dark_gray>");
+
         if (pageEntries.isEmpty()) {
-            sender.sendMessage(MessageUtil.parse(
-                    "<dark_gray>┃</dark_gray> <gray>No players in the OP list.</gray>"
-            ));
+            OpMessages.sendRow(sender, "list.empty",
+                    "<gray>No players in the OP list.</gray>");
         } else {
             int idx = from + 1;
             for (String name : pageEntries) {
@@ -118,9 +125,9 @@ public final class OpListSubcommand {
                 // after <white> leaked into the message as literal text.
                 String nameColorClose = isOnline ? "</white>" : "</gray>";
                 String safeName = MiniMessage.miniMessage().escapeTags(name);
-                String opTag = isOp ? " <gold>[OP]</gold>" : "";
-                String driftTag = isOnline && !isOp ? " <red>⚠ list-only</red>" : "";
-                String onlineTag = isOnline ? "" : " <dark_gray>(offline)</dark_gray>";
+                String opTag = isOp ? tagOp : "";
+                String driftTag = isOnline && !isOp ? tagListOnly : "";
+                String onlineTag = isOnline ? "" : tagOffline;
 
                 Component line = MessageUtil.parse(
                         "<dark_gray>┃</dark_gray> " + statusDot + " " + nameColor + "#" + idx + " " + safeName
@@ -128,10 +135,12 @@ public final class OpListSubcommand {
                 );
 
                 if (isOnline) {
+                    String hover = isOp
+                            ? OpMessages.raw("list.hover_op", "Click to grant/revoke OP")
+                            : OpMessages.raw("list.hover_repair",
+                                    "In the list without real OP — click to repair");
                     line = line.hoverEvent(HoverEvent.hoverEvent(HoverEvent.Action.SHOW_TEXT,
-                            MessageUtil.parse("<white>" + safeName + "</white>\n<gray>"
-                                    + (isOp ? "Click to grant/revoke OP" : "In the list without real OP — click to repair")
-                                    + "</gray>")));
+                            MessageUtil.parse("<white>" + safeName + "</white>\n<gray>" + hover + "</gray>")));
                     line = line.clickEvent(ClickEvent.runCommand("/ui op " + name));
                 }
 
@@ -145,34 +154,38 @@ public final class OpListSubcommand {
                 "<dark_gray>┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫</dark_gray>"
         ));
 
-        Component footer = MessageUtil.parse(
-                "<dark_gray>┃  </dark_gray><gray>Page </gray><yellow>" + page + "</yellow><gray>/</gray><yellow>" + totalPages + "</yellow>   "
-        );
+        Component footer = MessageUtil.parse("<dark_gray>┃  </dark_gray>");
+        footer = footer.append(MessageUtil.parse(OpMessages.raw("list.page",
+                "<gray>Page </gray><yellow>%page%</yellow><gray>/</gray><yellow>%pages%</yellow>",
+                "%page%", String.valueOf(page),
+                "%pages%", String.valueOf(totalPages))));
 
         // [<] — previous page
         if (page > 1) {
-            Component prev = Component.text("[<]")
-                    .color(net.kyori.adventure.text.format.NamedTextColor.YELLOW)
+            Component prev = Component.text(OpMessages.raw("list.prev_label", "[<]"))
+                    .color(NamedTextColor.YELLOW)
                     .clickEvent(ClickEvent.runCommand("/ui oplist " + (page - 1)))
                     .hoverEvent(HoverEvent.showText(
-                            MessageUtil.parse("<gray>Previous page</gray>")));
+                            OpMessages.get("list.prev_hover", "<gray>Previous page</gray>")));
             footer = footer.append(prev);
         } else {
-            footer = footer.append(MessageUtil.parse("<dark_gray>[<]</dark_gray>"));
+            footer = footer.append(MessageUtil.parse(
+                    OpMessages.raw("list.prev_disabled", "<dark_gray>[<]</dark_gray>")));
         }
 
         footer = footer.append(MessageUtil.parse("  "));
 
         // [>] — next page
         if (page < totalPages) {
-            Component next = Component.text("[>]")
-                    .color(net.kyori.adventure.text.format.NamedTextColor.YELLOW)
+            Component next = Component.text(OpMessages.raw("list.next_label", "[>]"))
+                    .color(NamedTextColor.YELLOW)
                     .clickEvent(ClickEvent.runCommand("/ui oplist " + (page + 1)))
                     .hoverEvent(HoverEvent.showText(
-                            MessageUtil.parse("<gray>Next page</gray>")));
+                            OpMessages.get("list.next_hover", "<gray>Next page</gray>")));
             footer = footer.append(next);
         } else {
-            footer = footer.append(MessageUtil.parse("<dark_gray>[>]</dark_gray>"));
+            footer = footer.append(MessageUtil.parse(
+                    OpMessages.raw("list.next_disabled", "<dark_gray>[>]</dark_gray>")));
         }
 
         sender.sendMessage(footer);

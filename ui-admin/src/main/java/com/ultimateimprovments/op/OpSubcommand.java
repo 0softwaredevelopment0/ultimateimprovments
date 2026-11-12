@@ -19,7 +19,7 @@ import java.util.stream.Collectors;
  * /ui op — grant operator status.
  * <p>
  * Usage:
- *   /ui op <player>    — grant OP to a specific player (must be online)
+ *   /ui op <player>    — grant OP to a specific player (online or cached offline)
  *   /ui op all         — grant OP to all online players missing it
  *   /ui op confirm     — confirm a pending op action
  * <p>
@@ -31,10 +31,21 @@ import java.util.stream.Collectors;
  *   <li>no OP, listed — repair: the list entry exists, the flag is missing;</li>
  *   <li>OP, not listed — record the existing OP in the list.</li>
  * </ul>
+ * All player-facing text is localized in UI-Admin.toml under {@code messages.op}
+ * / {@code messages_en.op}.
  */
 public final class OpSubcommand {
 
     private static final String PERMISSION = "ui.command.op";
+
+    // Shared defaults (English fallbacks; the TOML template carries RU/EN text).
+    static final String D_USAGE = "<red>Usage: </red><white>/ui op <player|all|confirm></white>";
+    static final String D_PLAYER_UNKNOWN = "<red>Player </red><yellow>%player%</yellow><red> is not online and is not known on this server.</red>";
+    static final String D_PLAYER_GONE = "<red>Player </red><yellow>%player%</yellow><red> is not known on this server anymore!</red>";
+    static final String D_OFFLINE = "<yellow>⚠</yellow> <gray>Player </gray><white>%player%</white> <gray>is currently offline — the OP change will be written to ops.json and the OP list, and no notification will be sent to the player.</gray>";
+    static final String D_LIST_UNAVAILABLE = "<red>Could not read the OP list (database error).</red> <gray>Nothing was changed — check the server console.</gray>";
+    static final String D_LIST_SAVE_FAILED = "<red>⚠</red> <gray>The OP list entry could not be saved — check the database (server console).</gray>";
+    static final String D_TARGET_GRANTED = "<gold>⚡</gold> <white>You are now an</white> <gold>operator</gold><white>!</white>";
 
     private OpSubcommand() {}
 
@@ -46,9 +57,7 @@ public final class OpSubcommand {
 
         // /ui op alone — usage
         if (args.length < 2) {
-            sender.sendMessage(MessageUtil.parse(
-                    "<red>Usage: </red><white>/ui op <player|all|confirm></white>"
-            ));
+            OpMessages.send(sender, "usage_grant", D_USAGE);
             return true;
         }
 
@@ -75,10 +84,8 @@ public final class OpSubcommand {
         OfflinePlayer target = OpManager.resolve(targetName);
 
         if (target == null || target.getName() == null) {
-            sender.sendMessage(MessageUtil.parse(
-                    "<red>Player </red><yellow>" + targetName
-                            + "</yellow><red> is not online and is not known on this server.</red>"
-            ));
+            OpMessages.send(sender, "player_unknown", D_PLAYER_UNKNOWN,
+                    "%player%", targetName);
             return true;
         }
 
@@ -93,25 +100,22 @@ public final class OpSubcommand {
         boolean op = OpManager.hasRealOp(target);
 
         if (op && listed) {
-            sender.sendMessage(MessageUtil.parse(
-                    "<yellow>" + name + "</yellow><red> already has OP status and is in the OP list.</red>"
-            ));
+            OpMessages.send(sender, "grant.already_op_listed",
+                    "<yellow>%player%</yellow><red> already has OP status and is in the OP list.</red>",
+                    "%player%", name);
             return true;
         }
 
         if (op) {
             // Real OP without a list entry — record it so /ui deop can find the player later.
             if (OpManager.add(name, sender.getName())) {
-                sender.sendMessage(MessageUtil.parse(
-                        "<green>✔</green> <yellow>" + name
-                                + "</yellow> <white>already has OP — added to the OP list.</white>"
-                ));
+                OpMessages.send(sender, "grant.added_to_list",
+                        "<green>✔</green> <yellow>%player%</yellow> <white>already has OP — added to the OP list.</white>",
+                        "%player%", name);
             } else {
-                sender.sendMessage(MessageUtil.parse(
-                        "<yellow>" + name
-                                + "</yellow> <white>already has OP, but the list entry could not be saved.</white> "
-                                + "<gray>Check the database (server console).</gray>"
-                ));
+                OpMessages.send(sender, "grant.add_failed",
+                        "<yellow>%player%</yellow> <white>already has OP, but the list entry could not be saved.</white> <gray>Check the database (server console).</gray>",
+                        "%player%", name);
             }
             return true;
         }
@@ -124,16 +128,17 @@ public final class OpSubcommand {
         OpManager.setPending(OpManager.getSenderId(sender), "op", name);
 
         if (repair) {
-            sender.sendMessage(MessageUtil.parse(
-                    "<gray>" + name + " is in the OP list but has no real OP — "
-                            + "confirming will restore it.</gray>"
-            ));
+            OpMessages.send(sender, "grant.repair_hint",
+                    "<gray>%player% is in the OP list but has no real OP — confirming will restore it.</gray>",
+                    "%player%", name);
         }
 
         sendConfirmDialog(sender,
-                repair ? "Restore OP" : "Grant OP",
-                "<green>GRANT</green>",
-                name + (online ? "" : " <dark_gray>(offline)</dark_gray>"),
+                repair
+                        ? OpMessages.raw("grant.title_restore", "Restore OP")
+                        : OpMessages.raw("grant.title", "Grant OP"),
+                OpMessages.raw("grant.action", "<green>GRANT</green>"),
+                name + (online ? "" : OpMessages.raw("dialog_offline_suffix", " <dark_gray>(offline)</dark_gray>")),
                 "/ui op confirm");
         return true;
     }
@@ -150,9 +155,8 @@ public final class OpSubcommand {
         }
 
         if (eligible.players().isEmpty()) {
-            sender.sendMessage(MessageUtil.parse(
-                    "<red>No eligible players found. All online players already have OP and are in the OP list.</red>"
-            ));
+            OpMessages.send(sender, "grant.all_none",
+                    "<red>No eligible players found. All online players already have OP and are in the OP list.</red>");
             return true;
         }
 
@@ -167,73 +171,70 @@ public final class OpSubcommand {
         sender.sendMessage(MessageUtil.parse(
                 "<dark_gray>┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓</dark_gray>"
         ));
-        sender.sendMessage(MessageUtil.parse(
-                "<dark_gray>┃</dark_gray> <gold>⚡ Operator Status Change</gold>"
-        ));
+        OpMessages.sendRow(sender, "dialog_title", "<gold>⚡ Operator Status Change</gold>");
         sender.sendMessage(MessageUtil.parse(
                 "<dark_gray>┃</dark_gray>"
         ));
-        sender.sendMessage(MessageUtil.parse(
-                "<dark_gray>┃</dark_gray> <gray>Action:</gray> <green>GRANT</green>"
-        ));
-        sender.sendMessage(MessageUtil.parse(
-                "<dark_gray>┃</dark_gray> <gray>Targets:</gray> <white>" + eligible.players().size() + " players</white>"
-        ));
+        OpMessages.sendRow(sender, "dialog_action",
+                "<gray>Action:</gray> %action%",
+                "%action%", OpMessages.raw("grant.action", "<green>GRANT</green>"));
+        OpMessages.sendRow(sender, "grant.all_targets",
+                "<gray>Targets:</gray> <white>%count% players</white>",
+                "%count%", String.valueOf(eligible.players().size()));
         if (eligible.repairs() > 0) {
-            sender.sendMessage(MessageUtil.parse(
-                    "<dark_gray>┃</dark_gray> <gray>Repairs:</gray> <yellow>" + eligible.repairs()
-                            + "</yellow> <gray>in the list without real OP</gray>"
-            ));
+            OpMessages.sendRow(sender, "grant.all_repairs",
+                    "<gray>Repairs:</gray> <yellow>%count%</yellow> <gray>in the list without real OP</gray>",
+                    "%count%", String.valueOf(eligible.repairs()));
         }
         if (eligible.listSyncs() > 0) {
-            sender.sendMessage(MessageUtil.parse(
-                    "<dark_gray>┃</dark_gray> <gray>List sync:</gray> <yellow>" + eligible.listSyncs()
-                            + "</yellow> <gray>already have OP, only the list entry is missing</gray>"
-            ));
+            OpMessages.sendRow(sender, "grant.all_list_sync",
+                    "<gray>List sync:</gray> <yellow>%count%</yellow> <gray>already have OP, only the list entry is missing</gray>",
+                    "%count%", String.valueOf(eligible.listSyncs()));
         }
-        sender.sendMessage(MessageUtil.parse(
-                "<dark_gray>┃</dark_gray> <gray>Players:</gray> <white>" + names + "</white>"
-        ));
+        OpMessages.sendRow(sender, "grant.all_players",
+                "<gray>Players:</gray> <white>%players%</white>",
+                "%players%", names);
         sender.sendMessage(MessageUtil.parse(
                 "<dark_gray>┃</dark_gray>"
         ));
-        sender.sendMessage(MessageUtil.parse(
-                "<dark_gray>┃</dark_gray> <gray>Are you sure you want to grant OP to all?</gray>"
-        ));
+        OpMessages.sendRow(sender, "grant.all_sure",
+                "<gray>Are you sure you want to grant OP to all?</gray>");
         sender.sendMessage(MessageUtil.parse(
                 "<dark_gray>┃</dark_gray>"
         ));
 
         if (sender instanceof Player) {
             // Player: show clickable buttons
-            Component confirmBtn = MessageUtil.parse(
-                    "<dark_gray>┃     </dark_gray><dark_green>[</dark_green><green>✔ Confirm Grant</green><dark_green>]</dark_green>"
+            Component confirmBtn = MessageUtil.parse(OpMessages.ROW_PREFIX + "    "
+                    + OpMessages.raw("dialog_confirm_button",
+                            "<dark_green>[</dark_green><green>✔ Confirm %title%</green><dark_green>]</dark_green>",
+                            "%title%", OpMessages.raw("grant.title", "Grant OP"))
             ).clickEvent(ClickEvent.runCommand("/ui op confirm"))
              .hoverEvent(HoverEvent.hoverEvent(HoverEvent.Action.SHOW_TEXT,
-                     MessageUtil.parse("<green>Click to confirm</green>\n<gray>Expires in 30 seconds</gray>")));
+                     OpMessages.get("dialog_hover_confirm",
+                             "<green>Click to confirm</green>\n<gray>Expires in 30 seconds</gray>")));
             sender.sendMessage(confirmBtn);
 
             Component cancelBtn = MessageUtil.parse(
                     "<dark_gray>┃     </dark_gray><dark_red>[</dark_red><red>✕ Cancel</red><dark_red>]</dark_red>"
             ).clickEvent(ClickEvent.runCommand("/ui oplist"))
              .hoverEvent(HoverEvent.hoverEvent(HoverEvent.Action.SHOW_TEXT,
-                     MessageUtil.parse("<gray>Click to cancel</gray>")));
+                     OpMessages.get("dialog_hover_cancel", "<gray>Click to cancel</gray>")));
             sender.sendMessage(cancelBtn);
 
             sender.sendMessage(MessageUtil.parse(
                     "<dark_gray>┃</dark_gray>"
             ));
-            sender.sendMessage(MessageUtil.parse(
-                    "<dark_gray>┃</dark_gray> <gray>Click a button or type </gray><white>/ui op confirm</white><gray> to confirm.</gray>"
-            ));
+            OpMessages.sendRow(sender, "dialog_click_hint",
+                    "<gray>Click a button or type </gray><white>%command%</white><gray> to confirm.</gray>",
+                    "%command%", "/ui op confirm");
         } else {
             // Console / Command Block: text-only instructions
-            sender.sendMessage(MessageUtil.parse(
-                    "<dark_gray>┃</dark_gray> <gray>Type </gray><white>/ui op confirm</white><gray> to confirm.</gray>"
-            ));
-            sender.sendMessage(MessageUtil.parse(
-                    "<dark_gray>┃</dark_gray> <gray>This action expires in </gray><white>30 seconds</white><gray>.</gray>"
-            ));
+            OpMessages.sendRow(sender, "dialog_console_hint",
+                    "<gray>Type </gray><white>%command%</white><gray> to confirm.</gray>",
+                    "%command%", "/ui op confirm");
+            OpMessages.sendRow(sender, "dialog_expiry",
+                    "<gray>This action expires in </gray><white>30 seconds</white><gray>.</gray>");
         }
 
         sender.sendMessage(MessageUtil.parse(
@@ -252,9 +253,8 @@ public final class OpSubcommand {
         OpManager.PendingAction pending = OpManager.consumePending(senderId, "op");
 
         if (pending == null) {
-            sender.sendMessage(MessageUtil.parse(
-                    "<red>No pending /ui op action found.</red> <gray>Use </gray><white>/ui op <player|all></white><gray> first.</gray>"
-            ));
+            OpMessages.send(sender, "grant.no_pending",
+                    "<red>No pending /ui op action found.</red> <gray>Use </gray><white>/ui op <player|all></white><gray> first.</gray>");
             return true;
         }
 
@@ -269,10 +269,8 @@ public final class OpSubcommand {
         OfflinePlayer target = OpManager.resolve(targetName);
 
         if (target == null || target.getName() == null) {
-            sender.sendMessage(MessageUtil.parse(
-                    "<red>Player </red><yellow>" + targetName
-                            + "</yellow><red> is not known on this server anymore!</red>"
-            ));
+            OpMessages.send(sender, "player_gone", D_PLAYER_GONE,
+                    "%player%", targetName);
             return true;
         }
 
@@ -286,9 +284,9 @@ public final class OpSubcommand {
 
         boolean wasOp = OpManager.hasRealOp(target);
         if (wasOp && listed) {
-            sender.sendMessage(MessageUtil.parse(
-                    "<yellow>" + name + "</yellow><red> already has OP status and is in the OP list.</red>"
-            ));
+            OpMessages.send(sender, "grant.already_op_listed",
+                    "<yellow>%player%</yellow><red> already has OP status and is in the OP list.</red>",
+                    "%player%", name);
             return true;
         }
 
@@ -296,28 +294,22 @@ public final class OpSubcommand {
         boolean stored = OpManager.grant(target, sender.getName());
 
         if (!stored) {
-            sender.sendMessage(MessageUtil.parse(
-                    "<green>✔</green> <gold>Operator</gold> <white>status granted to</white> <yellow>"
-                            + name + "</yellow><white>.</white>"
-            ));
-            sender.sendMessage(MessageUtil.parse(
-                    "<red>⚠</red> <gray>The OP list entry could not be saved — check the database (server console).</gray>"
-            ));
+            OpMessages.send(sender, "grant.granted",
+                    "<green>✔</green> <gold>Operator</gold> <white>status granted to</white> <yellow>%player%</yellow><white>.</white>",
+                    "%player%", name);
+            OpMessages.send(sender, "list_save_failed", D_LIST_SAVE_FAILED);
         } else if (repair) {
-            sender.sendMessage(MessageUtil.parse(
-                    "<green>✔</green> <gold>Operator</gold> <white>status restored for</white> <yellow>"
-                            + name + "</yellow><white> (was in the list without real OP).</white>"
-            ));
+            OpMessages.send(sender, "grant.restored",
+                    "<green>✔</green> <gold>Operator</gold> <white>status restored for</white> <yellow>%player%</yellow><white> (was in the list without real OP).</white>",
+                    "%player%", name);
         } else if (wasOp) {
-            sender.sendMessage(MessageUtil.parse(
-                    "<green>✔</green> <yellow>" + name
-                            + "</yellow> <white>already had OP — added to the OP list.</white>"
-            ));
+            OpMessages.send(sender, "grant.recorded",
+                    "<green>✔</green> <yellow>%player%</yellow> <white>already had OP — added to the OP list.</white>",
+                    "%player%", name);
         } else {
-            sender.sendMessage(MessageUtil.parse(
-                    "<green>✔</green> <gold>Operator</gold> <white>status granted to</white> <yellow>"
-                            + name + "</yellow><white>.</white>"
-            ));
+            OpMessages.send(sender, "grant.granted",
+                    "<green>✔</green> <gold>Operator</gold> <white>status granted to</white> <yellow>%player%</yellow><white>.</white>",
+                    "%player%", name);
         }
 
         if (!online) {
@@ -325,9 +317,7 @@ public final class OpSubcommand {
         } else if (!wasOp) {
             Player player = target.getPlayer();
             if (player != null) {
-                player.sendMessage(MessageUtil.parse(
-                        "<gold>⚡</gold> <white>You are now an</white> <gold>operator</gold><white>!</white>"
-                ));
+                player.sendMessage(OpMessages.get("target_granted", D_TARGET_GRANTED));
             }
         }
         ConsoleLogger.info("[OpManager] " + sender.getName() + " granted OP to " + name
@@ -344,9 +334,8 @@ public final class OpSubcommand {
         }
 
         if (eligible.players().isEmpty()) {
-            sender.sendMessage(MessageUtil.parse(
-                    "<red>No eligible players found. All online players already have OP and are in the OP list.</red>"
-            ));
+            OpMessages.send(sender, "grant.all_none",
+                    "<red>No eligible players found. All online players already have OP and are in the OP list.</red>");
             return true;
         }
 
@@ -358,33 +347,28 @@ public final class OpSubcommand {
                 failedWrites++;
             }
             if (!wasOp) {
-                target.sendMessage(MessageUtil.parse(
-                        "<gold>⚡</gold> <white>You are now an</white> <gold>operator</gold><white>!</white>"
-                ));
+                target.sendMessage(OpMessages.get("target_granted", D_TARGET_GRANTED));
             }
             count++;
         }
 
-        sender.sendMessage(MessageUtil.parse(
-                "<green>✔</green> <gold>Operator</gold> <white>status granted to </white><yellow>" + count + "</yellow><white> players.</white>"
-        ));
+        OpMessages.send(sender, "grant.all_granted",
+                "<green>✔</green> <gold>Operator</gold> <white>status granted to </white><yellow>%count%</yellow><white> players.</white>",
+                "%count%", String.valueOf(count));
         if (eligible.repairs() > 0) {
-            sender.sendMessage(MessageUtil.parse(
-                    "<gray>Restored </gray><yellow>" + eligible.repairs()
-                            + "</yellow><gray> player(s) that were in the list without real OP.</gray>"
-            ));
+            OpMessages.send(sender, "grant.all_restored",
+                    "<gray>Restored </gray><yellow>%count%</yellow><gray> player(s) that were in the list without real OP.</gray>",
+                    "%count%", String.valueOf(eligible.repairs()));
         }
         if (eligible.listSyncs() > 0) {
-            sender.sendMessage(MessageUtil.parse(
-                    "<gray>Recorded </gray><yellow>" + eligible.listSyncs()
-                            + "</yellow><gray> player(s) that already had OP but were missing from the list.</gray>"
-            ));
+            OpMessages.send(sender, "grant.all_recorded",
+                    "<gray>Recorded </gray><yellow>%count%</yellow><gray> player(s) that already had OP but were missing from the list.</gray>",
+                    "%count%", String.valueOf(eligible.listSyncs()));
         }
         if (failedWrites > 0) {
-            sender.sendMessage(MessageUtil.parse(
-                    "<red>⚠</red> <gray>OP list entries failed for </gray><yellow>" + failedWrites
-                            + "</yellow><gray> player(s) — check the database (server console).</gray>"
-            ));
+            OpMessages.send(sender, "grant.all_failed",
+                    "<red>⚠</red> <gray>OP list entries failed for </gray><yellow>%count%</yellow><gray> player(s) — check the database (server console).</gray>",
+                    "%count%", String.valueOf(failedWrites));
         }
         ConsoleLogger.info("[OpManager] " + sender.getName() + " granted OP to " + count + " players (all)");
         return true;
@@ -418,11 +402,8 @@ public final class OpSubcommand {
         return new EligiblePlayers(players, repairs, listSyncs);
     }
 
-    private static void sendListUnavailable(CommandSender sender) {
-        sender.sendMessage(MessageUtil.parse(
-                "<red>Could not read the OP list (database error).</red> "
-                        + "<gray>Nothing was changed — check the server console.</gray>"
-        ));
+    static void sendListUnavailable(CommandSender sender) {
+        OpMessages.send(sender, "list_unavailable", D_LIST_UNAVAILABLE);
     }
 
     /**
@@ -431,11 +412,8 @@ public final class OpSubcommand {
      * list, but the player receives no in-game notification.
      */
     static void sendOfflineWarning(CommandSender sender, String playerName) {
-        sender.sendMessage(MessageUtil.parse(MessageUtil.PREFIX
-                + "<yellow>⚠</yellow> <gray>Player </gray><white>" + playerName + "</white>"
-                + " <gray>is currently offline — the OP change will be written to ops.json "
-                + "and the OP list, and no notification will be sent to the player.</gray>"
-        ));
+        OpMessages.sendPrefixed(sender, "offline_warning", D_OFFLINE,
+                "%player%", playerName);
     }
 
     private record EligiblePlayers(List<Player> players, int repairs, int listSyncs) {}
@@ -443,63 +421,68 @@ public final class OpSubcommand {
     // ════════════════════════════════════════
     // SHARED CONFIRMATION DIALOG
     // ════════════════════════════════════════
-    static void sendConfirmDialog(CommandSender sender, String title, String actionTag, String targetName, String confirmCmd) {
+    /**
+     * @param title      localized dialog title used in the confirm button
+     * @param actionTag  localized action tag (GRANT / REVOKE)
+     * @param targetName display name, already including the offline suffix if needed
+     */
+    static void sendConfirmDialog(CommandSender sender, String title, String actionTag,
+                                  String targetName, String confirmCmd) {
         sender.sendMessage(MessageUtil.parse(""));
         sender.sendMessage(MessageUtil.parse(
                 "<dark_gray>┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓</dark_gray>"
         ));
-        sender.sendMessage(MessageUtil.parse(
-                "<dark_gray>┃</dark_gray> <gold>⚡ Operator Status Change</gold>"
-        ));
+        OpMessages.sendRow(sender, "dialog_title", "<gold>⚡ Operator Status Change</gold>");
         sender.sendMessage(MessageUtil.parse(
                 "<dark_gray>┃</dark_gray>"
         ));
-        sender.sendMessage(MessageUtil.parse(
-                "<dark_gray>┃</dark_gray> <gray>Player:</gray> <white>" + targetName + "</white>"
-        ));
-        sender.sendMessage(MessageUtil.parse(
-                "<dark_gray>┃</dark_gray> <gray>Action:</gray> " + actionTag
-        ));
+        OpMessages.sendRow(sender, "dialog_player",
+                "<gray>Player:</gray> <white>%player%</white>",
+                "%player%", targetName);
+        OpMessages.sendRow(sender, "dialog_action",
+                "<gray>Action:</gray> %action%",
+                "%action%", actionTag);
         sender.sendMessage(MessageUtil.parse(
                 "<dark_gray>┃</dark_gray>"
         ));
-        sender.sendMessage(MessageUtil.parse(
-                "<dark_gray>┃</dark_gray> <gray>Are you sure?</gray>"
-        ));
+        OpMessages.sendRow(sender, "dialog_sure", "<gray>Are you sure?</gray>");
         sender.sendMessage(MessageUtil.parse(
                 "<dark_gray>┃</dark_gray>"
         ));
 
         if (sender instanceof Player) {
             // Player: show clickable buttons
-            Component confirmBtn = MessageUtil.parse(
-                    "<dark_gray>┃     </dark_gray><dark_green>[</dark_green><green>✔ Confirm " + title + "</green><dark_green>]</dark_green>"
+            Component confirmBtn = MessageUtil.parse(OpMessages.ROW_PREFIX + "    "
+                    + OpMessages.raw("dialog_confirm_button",
+                            "<dark_green>[</dark_green><green>✔ Confirm %title%</green><dark_green>]</dark_green>",
+                            "%title%", title)
             ).clickEvent(ClickEvent.runCommand(confirmCmd))
              .hoverEvent(HoverEvent.hoverEvent(HoverEvent.Action.SHOW_TEXT,
-                     MessageUtil.parse("<green>Click to confirm</green>\n<gray>Expires in 30 seconds</gray>")));
+                     OpMessages.get("dialog_hover_confirm",
+                             "<green>Click to confirm</green>\n<gray>Expires in 30 seconds</gray>")));
             sender.sendMessage(confirmBtn);
 
-            Component cancelBtn = MessageUtil.parse(
-                    "<dark_gray>┃     </dark_gray><dark_red>[</dark_red><red>✕ Cancel</red><dark_red>]</dark_red>"
+            Component cancelBtn = MessageUtil.parse(OpMessages.ROW_PREFIX + "    "
+                    + OpMessages.raw("dialog_cancel_button",
+                            "<dark_red>[</dark_red><red>✕ Cancel</red><dark_red>]</dark_red>")
             ).clickEvent(ClickEvent.runCommand("/ui oplist"))
              .hoverEvent(HoverEvent.hoverEvent(HoverEvent.Action.SHOW_TEXT,
-                     MessageUtil.parse("<gray>Click to cancel</gray>")));
+                     OpMessages.get("dialog_hover_cancel", "<gray>Click to cancel</gray>")));
             sender.sendMessage(cancelBtn);
 
             sender.sendMessage(MessageUtil.parse(
                     "<dark_gray>┃</dark_gray>"
             ));
-            sender.sendMessage(MessageUtil.parse(
-                    "<dark_gray>┃</dark_gray> <gray>Click a button or type </gray><white>" + confirmCmd + "</white><gray> to confirm.</gray>"
-            ));
+            OpMessages.sendRow(sender, "dialog_click_hint",
+                    "<gray>Click a button or type </gray><white>%command%</white><gray> to confirm.</gray>",
+                    "%command%", confirmCmd);
         } else {
             // Console / Command Block: text-only instructions
-            sender.sendMessage(MessageUtil.parse(
-                    "<dark_gray>┃</dark_gray> <gray>Type </gray><white>" + confirmCmd + "</white><gray> to confirm.</gray>"
-            ));
-            sender.sendMessage(MessageUtil.parse(
-                    "<dark_gray>┃</dark_gray> <gray>This action expires in </gray><white>30 seconds</white><gray>.</gray>"
-            ));
+            OpMessages.sendRow(sender, "dialog_console_hint",
+                    "<gray>Type </gray><white>%command%</white><gray> to confirm.</gray>",
+                    "%command%", confirmCmd);
+            OpMessages.sendRow(sender, "dialog_expiry",
+                    "<gray>This action expires in </gray><white>30 seconds</white><gray>.</gray>");
         }
 
         sender.sendMessage(MessageUtil.parse(

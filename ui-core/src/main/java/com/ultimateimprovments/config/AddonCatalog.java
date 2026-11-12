@@ -93,7 +93,7 @@ public final class AddonCatalog {
         routeMsg("UI-Auth", "auth");
         routeMsg("UI-Protection", "protection");
         routeMsg("UI-Display", "tab", "scoreboard", "bossbar");
-        routeMsg("UI-Admin", "economy", "op_self");
+        routeMsg("UI-Admin", "economy", "op_self", "op");
         routeMsg("UI-Player", "vanish", "elytra_wear");
 routeMsg("UI-Items", "crafting", "remote_detonator");
         routeMsg("UI-Guard", "packet_guard", "bot_protection",

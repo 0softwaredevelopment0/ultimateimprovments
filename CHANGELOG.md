@@ -3,6 +3,27 @@
 All notable changes to the UltimateImprovments plugin family are documented
 in this file.
 
+## [1.8.5-beta.28] - 2026-11-12
+
+### Changed
+- **Every `/ui op`, `/ui deop` and `/ui oplist` message is configurable and
+  bilingual.** 80 keys now live in UI-Admin.toml under `[messages.op]` (Russian)
+  and `[messages_en.op]` (English): usage lines, player/unknown/offline notices,
+  the offline warning, every confirmation dialog row and button, all
+  grant/revoke results, `deop all` tags and counters, and the whole `/ui oplist`
+  layout text (title, totals, drift line, entry tags, hover texts, pager).
+  Placeholders: `%player%`, `%count%`, `%players%`, `%action%`, `%command%`,
+  `%page%`, `%pages%`, `%total%`, `%online%`, `%listed%`, `%op_only%`,
+  `%offline%`.
+- New helper `OpMessages` resolves `op.*` through `MessagesManager` with English
+  fallbacks, so an older config that has not been regenerated still shows the
+  previous texts. The new message group is routed to UI-Admin in `AddonCatalog`
+  (`routeMsg("UI-Admin", ..., "op")`), so the keys are written to and repaired
+  from UI-Admin.toml.
+- Literal command syntax inside messages (`<player|all|confirm>`, `<page>`,
+  `<player>`) is escaped for MiniMessage (`\<...\>`), so the usage lines no
+  longer lose their placeholders when rendered.
+
 ## [1.8.5-beta.27] - 2026-11-12
 
 ### Changed
