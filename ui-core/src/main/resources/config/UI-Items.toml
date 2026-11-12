@@ -100,6 +100,33 @@ ignite_sound = "ITEM_FLINTANDSTEEL_USE"
 # Default: BLOCK_NOTE_BLOCK_PLING
 bind_sound = "BLOCK_NOTE_BLOCK_PLING"
 
+# Fireball — vanilla Fire Charge shoots a fireball when used in the air.
+[fireball]
+# Master switch (true = right-click in air shoots, false = vanilla behaviour only).
+# Default: true
+enabled = true
+# Cooldown between shots of one player, milliseconds.
+# Default: 1000
+cooldown_ms = 1000
+# Projectile speed in blocks per tick.
+# Default: 1.5
+speed = 1.5
+# Explosion power (1..127; 1 = ghast fireball).
+# Default: 1.0
+explosion_power = 1.0
+# Set hit entities / the ground on fire.
+# Default: true
+incendiary = true
+# Allow the explosion to destroy blocks.
+# Default: true
+block_damage = true
+# Allow the shooter to damage themselves with their own fireball.
+# Default: false
+self_damage = false
+# Sound played on the shot (Bukkit Sound name, empty = silent).
+# Default: ENTITY_GHAST_SHOOT
+shoot_sound = "ENTITY_GHAST_SHOOT"
+
 # ==================================================================
 # MESSAGES
 # ==================================================================

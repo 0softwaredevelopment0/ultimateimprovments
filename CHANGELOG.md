@@ -3,6 +3,22 @@
 All notable changes to the UltimateImprovments plugin family are documented
 in this file.
 
+## [1.8.5-beta.29] - 2026-11-12
+
+### Added
+- **Vanilla `minecraft:fire_charge` now shoots a fireball when used in the
+  air.** Right-click in the air consumes one charge (creative mode is free) and
+  spawns a `LargeFireball` from the player's eyes, flying straight along the
+  view direction without gravity. Right-clicking a **block** keeps the vanilla
+  fire-placement behaviour. New module `FireCharge` in UI-Items, settings under
+  `[fireball]` in `UI-Items.toml`: `enabled`, `cooldown_ms` (default 1000),
+  `speed` (1.5 blocks/tick), `explosion_power` (1..127, default 1),
+  `incendiary`, `block_damage`, `self_damage` (default false) and
+  `shoot_sound` (`ENTITY_GHAST_SHOOT`).
+- The spawned fireball is tagged with the `ui-core:fireball` PDC key, so the
+  `EntityExplodeEvent` / self-damage handlers only affect shots from this
+  feature and never vanilla fireballs. Cooldowns are cleared on quit.
+
 ## [1.8.5-beta.28] - 2026-11-12
 
 ### Changed

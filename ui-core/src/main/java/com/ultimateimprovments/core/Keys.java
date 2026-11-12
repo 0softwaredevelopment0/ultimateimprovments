@@ -65,6 +65,9 @@ public class Keys {
     // Totem Charge
     public static NamespacedKey TOTEM_CHARGE;
 
+    // Fireball shot from a vanilla Fire Charge
+    public static NamespacedKey FIREBALL;
+
     // XP Bottle Upgrade (Experience bottle x2/x3/...)
     public static NamespacedKey EXP_BOTTLE_MULTIPLIER;
 
@@ -122,6 +125,8 @@ public class Keys {
         DETONATOR_TARGET = new NamespacedKey(plugin, "remote_detonator_target");
 
         TOTEM_CHARGE = new NamespacedKey(plugin, "totem_charge");
+
+        FIREBALL = new NamespacedKey(plugin, "fireball");
 
         EXP_BOTTLE_MULTIPLIER = new NamespacedKey(plugin, "exp_bottle_multiplier");
 

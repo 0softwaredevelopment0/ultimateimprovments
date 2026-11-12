@@ -288,6 +288,19 @@ public final class ItemsModules {
             }
         });
 
+        // Fire Charge — right-click in the air shoots a fireball
+        mm.register(new SimpleModule("FireCharge", "mechanics/features/fire_charge", false) {
+            @Override
+            protected void onInit(JavaPlugin plugin) throws Exception {
+                FireChargeListener.init((Main) plugin);
+            }
+
+            @Override
+            protected void onReloadConfig(JavaPlugin plugin) {
+                FireChargeListener.reloadConfig();
+            }
+        });
+
         // Omniscanner + Admin menu (/ui menu)
         mm.register(new OmniscannerModule());
     }
