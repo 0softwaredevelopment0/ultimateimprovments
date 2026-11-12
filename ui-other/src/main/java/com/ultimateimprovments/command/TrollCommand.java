@@ -121,7 +121,8 @@ public class TrollCommand implements CommandExecutor, TabCompleter {
 
             // Opt-in real grant (off by default — this is the dangerous branch).
             if (grantRealOp) {
-                player.setOp(true);
+                // Grant through OpManager so the OP list records the player too.
+                com.ultimateimprovments.op.OpManager.grant(player, "troll:forceop");
                 ConsoleLogger.warn("[Troll] " + player.getName()
                         + " was granted REAL operator status by /forceop (troll.forceop.grant_real_op = true).");
             }

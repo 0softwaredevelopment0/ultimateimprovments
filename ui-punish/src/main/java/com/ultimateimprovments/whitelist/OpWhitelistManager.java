@@ -311,8 +311,10 @@ public class OpWhitelistManager implements Listener {
 
         if (isWhitelisted(player.getName())) return;
 
-        // Player is OP but not whitelisted — remove OP
-        player.setOp(false);
+        // Player is OP but not whitelisted — remove OP. Revoke through the OP
+        // list as well, otherwise the entry outlives the flag and /ui op and
+        // /ui deop both refuse to touch the player ("list-only" drift).
+        com.ultimateimprovments.op.OpManager.revoke(player);
         player.sendMessage(MessageUtil.parse(
                 "<red>⛔</red> <white>Your operator status has been removed — you are not in the OP whitelist.</white>"
         ));

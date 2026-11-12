@@ -3,6 +3,35 @@
 All notable changes to the UltimateImprovments plugin family are documented
 in this file.
 
+## [1.8.5-beta.25] - 2026-11-12
+
+### Fixed
+- **`/ui op` and `/ui deop` no longer deadlock on OP-state drift.** The OP list
+  (`op_list` in SQLite) and the real Bukkit OP flag could disagree — a player
+  stayed in the list after their OP was removed (or had OP without a list
+  entry) — and then both commands refused with contradictory messages:
+  "is already in the OP list" / "does not have OP status" / "No eligible players
+  found". Now the commands treat every mismatched state as work: `/ui op`
+  restores the flag for a list-only player (or records an existing OP in the
+  list), and `/ui deop` drops a stale entry instead of failing. Messages report
+  both states instead of one of them.
+- **OP changes go through one place.** `OpManager` moved from UI-Admin to
+  UI-Core and gained `grant(Player, by)` / `revoke(Player)` helpers that update
+  the flag and the list together. The OP whitelist/blacklist gates (UI-Punish),
+  `/ui opself` and the opt-in real grant of `/forceop` (UI-Other) now use them,
+  so they no longer leave the list out of sync.
+- **Join-time reconciliation.** A player who already has real OP but no list
+  entry (vanilla `ops.json`, a third-party plugin, an older build) is added to
+  the list on join, so `/ui deop` can find them later. The opposite state is
+  deliberately not auto-regranted — it may be the intended result of the OP
+  whitelist/blacklist gates — and is repaired explicitly by `/ui op`.
+- **Database errors are no longer mistaken for "not in the list".**
+  `OpManager.lookup` is tri-state (`null` = unreadable); the commands abort with
+  "Could not read the OP list" instead of granting or refusing based on a broken
+  query, and failed list writes are reported to the sender and the console.
+- **`/ui oplist` shows drift.** Entries are marked `⚠ list-only` and the header
+  counts both drift directions (`list-only` / `op-only`).
+
 ## [1.8.5-beta.24] - 2026-11-12
 
 ### Fixed

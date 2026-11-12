@@ -65,6 +65,7 @@ public class PluginStartup {
         checkJavaVersion();
         initInfrastructure();
         initModuleSystem();
+        initOpState();
         printBanner();
         ConsoleLogger.success("[PLUGIN] UI-Core enabled!");
     }
@@ -142,6 +143,14 @@ public class PluginStartup {
         plugin.getServer().getPluginManager().registerEvents(
                 new com.ultimateimprovments.listener.LoadedAlertListener(), plugin);
         com.ultimateimprovments.listener.LoadedAlertListener.sweepOnline();
+    }
+
+    private void initOpState() {
+        // The OP list lives in UI-Core so every addon (commands, OP gates,
+        // troll/opself grants) can keep it in sync with the real OP flag.
+        com.ultimateimprovments.op.OpManager.init();
+        plugin.getServer().getPluginManager().registerEvents(
+                new com.ultimateimprovments.op.OpJoinSyncListener(), plugin);
     }
 
     private void loadConfigFile() {

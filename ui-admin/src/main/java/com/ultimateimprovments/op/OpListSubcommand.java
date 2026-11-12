@@ -57,10 +57,26 @@ public final class OpListSubcommand {
         int to = Math.min(from + PER_PAGE, totalEntries);
         List<String> pageEntries = all.subList(from, to);
 
-        // Count online OPs
+        // Count online OPs and drift in both directions
         int onlineOpCount = 0;
+        int listOnlyCount = 0;
+        int opOnlyCount = 0;
+        java.util.Set<String> listedLower = all.stream()
+                .map(s -> s.toLowerCase())
+                .collect(java.util.stream.Collectors.toSet());
         for (Player p : Bukkit.getOnlinePlayers()) {
-            if (p.isOp()) onlineOpCount++;
+            if (p.isOp()) {
+                onlineOpCount++;
+                if (!listedLower.contains(p.getName().toLowerCase())) {
+                    opOnlyCount++;
+                }
+            }
+        }
+        for (String name : all) {
+            Player p = Bukkit.getPlayerExact(name);
+            if (p != null && p.isOnline() && !p.isOp()) {
+                listOnlyCount++;
+            }
         }
 
         // ─── Header ───
@@ -73,6 +89,13 @@ public final class OpListSubcommand {
         sender.sendMessage(MessageUtil.parse(
                 "<dark_gray>┃</dark_gray> <gray>Total: </gray><white>" + totalEntries + "</white><gray> | Online OPs: </gray><gold>" + onlineOpCount + "</gold>"
         ));
+        if (listOnlyCount > 0 || opOnlyCount > 0) {
+            sender.sendMessage(MessageUtil.parse(
+                    "<dark_gray>┃</dark_gray> <red>⚠ Drift:</red> <yellow>" + listOnlyCount
+                            + "</yellow> <gray>list-only,</gray> <yellow>" + opOnlyCount
+                            + "</yellow> <gray>op-only — </gray><white>/ui op \\<player\\></white><gray> repairs</gray>"
+            ));
+        }
         sender.sendMessage(MessageUtil.parse(
                 "<dark_gray>┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫</dark_gray>"
         ));
@@ -96,16 +119,19 @@ public final class OpListSubcommand {
                 String nameColorClose = isOnline ? "</white>" : "</gray>";
                 String safeName = MiniMessage.miniMessage().escapeTags(name);
                 String opTag = isOp ? " <gold>[OP]</gold>" : "";
+                String driftTag = isOnline && !isOp ? " <red>⚠ list-only</red>" : "";
                 String onlineTag = isOnline ? "" : " <dark_gray>(offline)</dark_gray>";
 
                 Component line = MessageUtil.parse(
                         "<dark_gray>┃</dark_gray> " + statusDot + " " + nameColor + "#" + idx + " " + safeName
-                                + nameColorClose + opTag + onlineTag
+                                + nameColorClose + opTag + driftTag + onlineTag
                 );
 
                 if (isOnline) {
                     line = line.hoverEvent(HoverEvent.hoverEvent(HoverEvent.Action.SHOW_TEXT,
-                            MessageUtil.parse("<white>" + safeName + "</white>\n<gray>Click to grant/revoke OP</gray>")));
+                            MessageUtil.parse("<white>" + safeName + "</white>\n<gray>"
+                                    + (isOp ? "Click to grant/revoke OP" : "In the list without real OP — click to repair")
+                                    + "</gray>")));
                     line = line.clickEvent(ClickEvent.runCommand("/ui op " + name));
                 }
 

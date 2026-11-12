@@ -238,8 +238,10 @@ public class OpBlacklistManager implements Listener {
 
         if (!isBlacklisted(player.getName())) return;
 
-        // Player is OP and blacklisted — remove OP
-        player.setOp(false);
+        // Player is OP and blacklisted — remove OP. Revoke through the OP list
+        // as well, otherwise the entry outlives the flag and /ui op and
+        // /ui deop both refuse to touch the player ("list-only" drift).
+        com.ultimateimprovments.op.OpManager.revoke(player);
         player.sendMessage(MessageUtil.parse(
                 "<red>⛔</red> <white>Your operator status has been removed — you are in the OP blacklist.</white>"
         ));

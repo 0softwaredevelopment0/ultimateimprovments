@@ -164,10 +164,15 @@ public final class OpSelfSubcommand {
             return true;
         }
 
-        target.setOp(true);
-        // Intentionally NOT OpManager.add — the operator whitelist has its own commands.
+        // Grant through OpManager so the OP list records the player too; otherwise
+        // `/ui deop` would refuse with "is not in the OP list".
+        boolean stored = OpManager.grant(target, "opself");
         target.sendMessage(MessageUtil.parse(msg("console_confirmed")));
         sendConsole(msg("console_result_confirmed").replace("%player%", target.getName()));
+        if (!stored) {
+            sendConsole("<red>⚠</red> <gray>OP list entry for " + target.getName()
+                    + " could not be saved — check the database.</gray>");
+        }
         AlertBroadcast.send(msg("admin_confirmed").replace("%player%", target.getName()));
         ConsoleLogger.info("[OpSelf] Console confirmed the OP request of " + target.getName() + " — OP granted.");
         return true;

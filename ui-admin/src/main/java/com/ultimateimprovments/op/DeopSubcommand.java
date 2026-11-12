@@ -18,9 +18,13 @@ import java.util.stream.Collectors;
  * /ui deop — revoke operator status.
  * <p>
  * Usage:
- *   /ui deop <player>    — revoke OP from a specific player (must be in OP list)
+ *   /ui deop <player>    — revoke OP from a specific player
  *   /ui deop all         — revoke OP from ALL players in the OP list
  *   /ui deop confirm     — confirm a pending deop action
+ * <p>
+ * A player who is in the OP list but has no real OP is not an error: the
+ * stale entry is simply removed. A player with real OP but no list entry can
+ * still be revoked, so the two states never deadlock each other.
  */
 public final class DeopSubcommand {
 
@@ -72,22 +76,37 @@ public final class DeopSubcommand {
             return true;
         }
 
-        if (!OpManager.isInList(target.getName())) {
+        Boolean listed = OpManager.lookup(target.getName());
+        if (listed == null) {
+            sendListUnavailable(sender);
+            return true;
+        }
+
+        boolean op = target.isOp();
+
+        if (!op && !listed) {
             sender.sendMessage(MessageUtil.parse(
-                    "<yellow>" + target.getName() + "</yellow><red> is not in the OP list.</red>"
+                    "<yellow>" + target.getName()
+                            + "</yellow><red> does not have OP status and is not in the OP list.</red>"
             ));
             return true;
         }
 
-        if (!target.isOp()) {
-            sender.sendMessage(MessageUtil.parse(
-                    "<yellow>" + target.getName() + "</yellow><red> does not have OP status.</red>"
-            ));
+        if (!op) {
+            // List-only drift: there is nothing to revoke, only a stale entry to drop.
+            removeStaleEntry(sender, target.getName());
             return true;
         }
 
         // Store pending
         OpManager.setPending(OpManager.getSenderId(sender), "deop", target.getName());
+
+        if (!listed) {
+            sender.sendMessage(MessageUtil.parse(
+                    "<gray>" + target.getName() + " has OP but is not in the OP list — "
+                            + "confirming will revoke the real OP.</gray>"
+            ));
+        }
 
         // Show confirmation dialog
         OpSubcommand.sendConfirmDialog(sender,
@@ -224,26 +243,34 @@ public final class DeopSubcommand {
             return true;
         }
 
-        if (!OpManager.isInList(target.getName())) {
-            sender.sendMessage(MessageUtil.parse(
-                    "<yellow>" + target.getName() + "</yellow><red> is not in the OP list.</red>"
-            ));
+        Boolean listed = OpManager.lookup(target.getName());
+        if (listed == null) {
+            sendListUnavailable(sender);
             return true;
         }
 
         if (!target.isOp()) {
-            sender.sendMessage(MessageUtil.parse(
-                    "<yellow>" + target.getName() + "</yellow><red> does not have OP status.</red>"
-            ));
+            if (listed) {
+                removeStaleEntry(sender, target.getName());
+            } else {
+                sender.sendMessage(MessageUtil.parse(
+                        "<yellow>" + target.getName()
+                                + "</yellow><red> does not have OP status and is not in the OP list.</red>"
+                ));
+            }
             return true;
         }
 
-        target.setOp(false);
-        OpManager.remove(target.getName());
+        boolean stored = OpManager.revoke(target);
 
         sender.sendMessage(MessageUtil.parse(
                 "<green>✔</green> <gold>Operator</gold> <white>status revoked from</white> <yellow>" + target.getName() + "</yellow><white>.</white>"
         ));
+        if (!stored) {
+            sender.sendMessage(MessageUtil.parse(
+                    "<red>⚠</red> <gray>The OP list entry could not be removed — check the database (server console).</gray>"
+            ));
+        }
         target.sendMessage(MessageUtil.parse(
                 "<red>⛔</red> <white>Your</white> <gold>operator</gold> <white>status has been revoked.</white>"
         ));
@@ -262,23 +289,66 @@ public final class DeopSubcommand {
         }
 
         int count = 0;
+        int failed = 0;
         for (String name : opList) {
             Player target = Bukkit.getPlayerExact(name);
-            if (target != null && target.isOnline() && target.isOp()) {
-                target.setOp(false);
-                target.sendMessage(MessageUtil.parse(
-                        "<red>⛔</red> <white>Your</white> <gold>operator</gold> <white>status has been revoked.</white>"
-                ));
+            boolean ok;
+            if (target != null && target.isOnline()) {
+                ok = OpManager.revoke(target);
+                if (ok) {
+                    target.sendMessage(MessageUtil.parse(
+                            "<red>⛔</red> <white>Your</white> <gold>operator</gold> <white>status has been revoked.</white>"
+                    ));
+                }
+            } else {
+                ok = OpManager.remove(name);
             }
-            OpManager.remove(name);
-            count++;
+            if (ok) {
+                count++;
+            } else {
+                failed++;
+            }
         }
 
         sender.sendMessage(MessageUtil.parse(
                 "<green>✔</green> <gold>Operator</gold> <white>status revoked from </white><yellow>" + count + "</yellow><white> players.</white>"
         ));
+        if (failed > 0) {
+            sender.sendMessage(MessageUtil.parse(
+                    "<red>⚠</red> <gray>Could not update </gray><yellow>" + failed
+                            + "</yellow><gray> list entries — check the database (server console).</gray>"
+            ));
+        }
         ConsoleLogger.info("[OpManager] " + sender.getName() + " revoked OP from " + count + " players (all)");
         return true;
+    }
+
+    // ════════════════════════════════════════
+    // HELPERS
+    // ════════════════════════════════════════
+    /** Drops an OP-list entry for a player who has no real OP (previous desync). */
+    private static void removeStaleEntry(CommandSender sender, String playerName) {
+        boolean removed = OpManager.remove(playerName);
+        if (removed || Boolean.FALSE.equals(OpManager.lookup(playerName))) {
+            sender.sendMessage(MessageUtil.parse(
+                    "<green>✔</green> <yellow>" + playerName
+                            + "</yellow> <white>had no real OP — the stale OP list entry was removed.</white>"
+            ));
+            ConsoleLogger.info("[OpManager] " + sender.getName()
+                    + " removed a stale OP list entry for " + playerName + " (no real OP).");
+        } else {
+            sender.sendMessage(MessageUtil.parse(
+                    "<red>⚠</red> <gray>Could not remove the OP list entry for </gray><yellow>" + playerName
+                            + "</yellow><gray> — check the database (server console).</gray>"
+            ));
+        }
+    }
+
+    private static void sendListUnavailable(CommandSender sender) {
+        sender.sendMessage(MessageUtil.parse(
+                "<red>Could not read the OP list (database error).</red> "
+                        + "<gray>Nothing was changed — check the server console.</gray>"
+        ));
     }
 
     // ════════════════════════════════════════
@@ -290,10 +360,9 @@ public final class DeopSubcommand {
             List<String> completions = new ArrayList<>();
             completions.add("all");
             completions.add("confirm");
-            // Only show players who are in the OP list
-            for (String name : OpManager.getList()) {
-                Player p = Bukkit.getPlayerExact(name);
-                if (p != null && p.isOnline()) {
+            // Listed players plus anyone with real OP outside the list — both can be revoked.
+            for (Player p : Bukkit.getOnlinePlayers()) {
+                if (p.isOp() || OpManager.isInList(p.getName())) {
                     completions.add(p.getName());
                 }
             }

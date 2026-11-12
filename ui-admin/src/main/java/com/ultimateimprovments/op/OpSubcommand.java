@@ -18,9 +18,18 @@ import java.util.stream.Collectors;
  * /ui op — grant operator status.
  * <p>
  * Usage:
- *   /ui op <player>    — grant OP to a specific player (must be online, not in OP list)
- *   /ui op all         — grant OP to all online players not in the OP list
+ *   /ui op <player>    — grant OP to a specific player (must be online)
+ *   /ui op all         — grant OP to all online players missing it
  *   /ui op confirm     — confirm a pending op action
+ * <p>
+ * The OP list and the real OP flag can drift apart (a whitelist/blacklist gate,
+ * a third-party plugin, a database hiccup). This command therefore treats the
+ * following states as work instead of as an error:
+ * <ul>
+ *   <li>no OP, not listed — normal grant;</li>
+ *   <li>no OP, listed — repair: the list entry exists, the flag is missing;</li>
+ *   <li>OP, not listed — record the existing OP in the list.</li>
+ * </ul>
  */
 public final class OpSubcommand {
 
@@ -72,26 +81,50 @@ public final class OpSubcommand {
             return true;
         }
 
-        if (OpManager.isInList(target.getName())) {
+        Boolean listed = OpManager.lookup(target.getName());
+        if (listed == null) {
+            sendListUnavailable(sender);
+            return true;
+        }
+
+        boolean op = target.isOp();
+
+        if (op && listed) {
             sender.sendMessage(MessageUtil.parse(
-                    "<yellow>" + target.getName() + "</yellow><red> is already in the OP list.</red>"
+                    "<yellow>" + target.getName() + "</yellow><red> already has OP status and is in the OP list.</red>"
             ));
             return true;
         }
 
-        if (target.isOp()) {
-            sender.sendMessage(MessageUtil.parse(
-                    "<yellow>" + target.getName() + "</yellow><red> already has OP status.</red>"
-            ));
+        if (op) {
+            // Real OP without a list entry — record it so /ui deop can find the player later.
+            if (OpManager.add(target.getName(), sender.getName())) {
+                sender.sendMessage(MessageUtil.parse(
+                        "<green>✔</green> <yellow>" + target.getName()
+                                + "</yellow> <white>already has OP — added to the OP list.</white>"
+                ));
+            } else {
+                sender.sendMessage(MessageUtil.parse(
+                        "<yellow>" + target.getName()
+                                + "</yellow> <white>already has OP, but the list entry could not be saved.</white> "
+                                + "<gray>Check the database (server console).</gray>"
+                ));
+            }
             return true;
         }
 
-        // Store pending
+        boolean repair = listed;
         OpManager.setPending(OpManager.getSenderId(sender), "op", target.getName());
 
-        // Show confirmation dialog
+        if (repair) {
+            sender.sendMessage(MessageUtil.parse(
+                    "<gray>" + target.getName() + " is in the OP list but has no real OP — "
+                            + "confirming will restore it.</gray>"
+            ));
+        }
+
         sendConfirmDialog(sender,
-                "Grant OP",
+                repair ? "Restore OP" : "Grant OP",
                 "<green>GRANT</green>",
                 target.getName(),
                 "/ui op confirm");
@@ -102,11 +135,16 @@ public final class OpSubcommand {
     // SHOW CONFIRMATION — all
     // ════════════════════════════════════════
     private static boolean showConfirmAll(CommandSender sender) {
-        List<Player> eligible = getEligibleOnline();
+        EligiblePlayers eligible = getEligibleOnline();
 
-        if (eligible.isEmpty()) {
+        if (eligible == null) {
+            sendListUnavailable(sender);
+            return true;
+        }
+
+        if (eligible.players().isEmpty()) {
             sender.sendMessage(MessageUtil.parse(
-                    "<red>No eligible players found. All online players are already in the OP list or have OP.</red>"
+                    "<red>No eligible players found. All online players already have OP and are in the OP list.</red>"
             ));
             return true;
         }
@@ -114,8 +152,7 @@ public final class OpSubcommand {
         // Store pending
         OpManager.setPending(OpManager.getSenderId(sender), "op", "all");
 
-        // Show confirmation dialog
-        String names = eligible.stream()
+        String names = eligible.players().stream()
                 .map(Player::getName)
                 .collect(Collectors.joining("<gray>, </gray>"));
 
@@ -133,8 +170,20 @@ public final class OpSubcommand {
                 "<dark_gray>┃</dark_gray> <gray>Action:</gray> <green>GRANT</green>"
         ));
         sender.sendMessage(MessageUtil.parse(
-                "<dark_gray>┃</dark_gray> <gray>Targets:</gray> <white>" + eligible.size() + " players</white>"
+                "<dark_gray>┃</dark_gray> <gray>Targets:</gray> <white>" + eligible.players().size() + " players</white>"
         ));
+        if (eligible.repairs() > 0) {
+            sender.sendMessage(MessageUtil.parse(
+                    "<dark_gray>┃</dark_gray> <gray>Repairs:</gray> <yellow>" + eligible.repairs()
+                            + "</yellow> <gray>in the list without real OP</gray>"
+            ));
+        }
+        if (eligible.listSyncs() > 0) {
+            sender.sendMessage(MessageUtil.parse(
+                    "<dark_gray>┃</dark_gray> <gray>List sync:</gray> <yellow>" + eligible.listSyncs()
+                            + "</yellow> <gray>already have OP, only the list entry is missing</gray>"
+            ));
+        }
         sender.sendMessage(MessageUtil.parse(
                 "<dark_gray>┃</dark_gray> <gray>Players:</gray> <white>" + names + "</white>"
         ));
@@ -220,49 +269,109 @@ public final class OpSubcommand {
             return true;
         }
 
-        if (target.isOp()) {
+        Boolean listed = OpManager.lookup(target.getName());
+        if (listed == null) {
+            sendListUnavailable(sender);
+            return true;
+        }
+
+        boolean wasOp = target.isOp();
+        if (wasOp && listed) {
             sender.sendMessage(MessageUtil.parse(
-                    "<yellow>" + target.getName() + "</yellow><red> already has OP status.</red>"
+                    "<yellow>" + target.getName() + "</yellow><red> already has OP status and is in the OP list.</red>"
             ));
             return true;
         }
 
-        target.setOp(true);
-        OpManager.add(target.getName(), sender.getName());
+        boolean repair = listed && !wasOp;
+        boolean stored = OpManager.grant(target, sender.getName());
 
-        sender.sendMessage(MessageUtil.parse(
-                "<green>✔</green> <gold>Operator</gold> <white>status granted to</white> <yellow>" + target.getName() + "</yellow><white>.</white>"
-        ));
-        target.sendMessage(MessageUtil.parse(
-                "<gold>⚡</gold> <white>You are now an</white> <gold>operator</gold><white>!</white>"
-        ));
-        ConsoleLogger.info("[OpManager] " + sender.getName() + " granted OP to " + target.getName());
+        if (!stored) {
+            sender.sendMessage(MessageUtil.parse(
+                    "<green>✔</green> <gold>Operator</gold> <white>status granted to</white> <yellow>"
+                            + target.getName() + "</yellow><white>.</white>"
+            ));
+            sender.sendMessage(MessageUtil.parse(
+                    "<red>⚠</red> <gray>The OP list entry could not be saved — check the database (server console).</gray>"
+            ));
+        } else if (repair) {
+            sender.sendMessage(MessageUtil.parse(
+                    "<green>✔</green> <gold>Operator</gold> <white>status restored for</white> <yellow>"
+                            + target.getName() + "</yellow><white> (was in the list without real OP).</white>"
+            ));
+        } else if (wasOp) {
+            sender.sendMessage(MessageUtil.parse(
+                    "<green>✔</green> <yellow>" + target.getName()
+                            + "</yellow> <white>already had OP — added to the OP list.</white>"
+            ));
+        } else {
+            sender.sendMessage(MessageUtil.parse(
+                    "<green>✔</green> <gold>Operator</gold> <white>status granted to</white> <yellow>"
+                            + target.getName() + "</yellow><white>.</white>"
+            ));
+        }
+
+        if (!wasOp) {
+            target.sendMessage(MessageUtil.parse(
+                    "<gold>⚡</gold> <white>You are now an</white> <gold>operator</gold><white>!</white>"
+            ));
+        }
+        ConsoleLogger.info("[OpManager] " + sender.getName() + " granted OP to " + target.getName()
+                + (repair ? " (restored list-only drift)" : ""));
         return true;
     }
 
     private static boolean executeGrantAll(CommandSender sender) {
-        List<Player> eligible = getEligibleOnline();
+        EligiblePlayers eligible = getEligibleOnline();
 
-        if (eligible.isEmpty()) {
+        if (eligible == null) {
+            sendListUnavailable(sender);
+            return true;
+        }
+
+        if (eligible.players().isEmpty()) {
             sender.sendMessage(MessageUtil.parse(
-                    "<red>No eligible players found. All online players already have OP or are in the list.</red>"
+                    "<red>No eligible players found. All online players already have OP and are in the OP list.</red>"
             ));
             return true;
         }
 
         int count = 0;
-        for (Player target : eligible) {
-            target.setOp(true);
-            OpManager.add(target.getName(), sender.getName());
-            target.sendMessage(MessageUtil.parse(
-                    "<gold>⚡</gold> <white>You are now an</white> <gold>operator</gold><white>!</white>"
-            ));
+        int failedWrites = 0;
+        for (Player target : eligible.players()) {
+            boolean wasOp = target.isOp();
+            if (!OpManager.grant(target, sender.getName())) {
+                failedWrites++;
+            }
+            if (!wasOp) {
+                target.sendMessage(MessageUtil.parse(
+                        "<gold>⚡</gold> <white>You are now an</white> <gold>operator</gold><white>!</white>"
+                ));
+            }
             count++;
         }
 
         sender.sendMessage(MessageUtil.parse(
                 "<green>✔</green> <gold>Operator</gold> <white>status granted to </white><yellow>" + count + "</yellow><white> players.</white>"
         ));
+        if (eligible.repairs() > 0) {
+            sender.sendMessage(MessageUtil.parse(
+                    "<gray>Restored </gray><yellow>" + eligible.repairs()
+                            + "</yellow><gray> player(s) that were in the list without real OP.</gray>"
+            ));
+        }
+        if (eligible.listSyncs() > 0) {
+            sender.sendMessage(MessageUtil.parse(
+                    "<gray>Recorded </gray><yellow>" + eligible.listSyncs()
+                            + "</yellow><gray> player(s) that already had OP but were missing from the list.</gray>"
+            ));
+        }
+        if (failedWrites > 0) {
+            sender.sendMessage(MessageUtil.parse(
+                    "<red>⚠</red> <gray>OP list entries failed for </gray><yellow>" + failedWrites
+                            + "</yellow><gray> player(s) — check the database (server console).</gray>"
+            ));
+        }
         ConsoleLogger.info("[OpManager] " + sender.getName() + " granted OP to " + count + " players (all)");
         return true;
     }
@@ -270,15 +379,39 @@ public final class OpSubcommand {
     // ════════════════════════════════════════
     // HELPERS
     // ════════════════════════════════════════
-    private static List<Player> getEligibleOnline() {
-        List<Player> result = new ArrayList<>();
+    /**
+     * Players whose OP state and list entry do not match, or who have neither.
+     *
+     * @return {@code null} when the OP list cannot be read.
+     */
+    private static EligiblePlayers getEligibleOnline() {
+        List<Player> players = new ArrayList<>();
+        int repairs = 0;
+        int listSyncs = 0;
         for (Player p : Bukkit.getOnlinePlayers()) {
-            if (!p.isOp() && !OpManager.isInList(p.getName())) {
-                result.add(p);
+            Boolean listed = OpManager.lookup(p.getName());
+            if (listed == null) return null;
+            if (!p.isOp() && !listed) {
+                players.add(p);
+            } else if (!p.isOp()) {
+                players.add(p);
+                repairs++;
+            } else if (!listed) {
+                players.add(p);
+                listSyncs++;
             }
         }
-        return result;
+        return new EligiblePlayers(players, repairs, listSyncs);
     }
+
+    private static void sendListUnavailable(CommandSender sender) {
+        sender.sendMessage(MessageUtil.parse(
+                "<red>Could not read the OP list (database error).</red> "
+                        + "<gray>Nothing was changed — check the server console.</gray>"
+        ));
+    }
+
+    private record EligiblePlayers(List<Player> players, int repairs, int listSyncs) {}
 
     // ════════════════════════════════════════
     // SHARED CONFIRMATION DIALOG
@@ -358,7 +491,8 @@ public final class OpSubcommand {
             completions.add("all");
             completions.add("confirm");
             for (Player p : Bukkit.getOnlinePlayers()) {
-                if (!p.isOp() && !OpManager.isInList(p.getName())) {
+                // Players already fully OP (flag + list) have nothing to grant.
+                if (!p.isOp() || !OpManager.isInList(p.getName())) {
                     completions.add(p.getName());
                 }
             }
