@@ -3,6 +3,7 @@ package com.ultimateimprovments.mechanics.features.items;
 import com.ultimateimprovments.core.Keys;
 import com.ultimateimprovments.core.Main;
 import com.ultimateimprovments.core.Permissions;
+import com.ultimateimprovments.util.ConsoleLogger;
 import com.ultimateimprovments.util.SoundUtil;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
@@ -15,6 +16,7 @@ import org.bukkit.entity.LargeFireball;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
+import org.bukkit.event.Event;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
@@ -47,6 +49,7 @@ public final class FireChargeListener implements Listener {
     private static final Map<UUID, Long> cooldowns = new HashMap<>();
 
     private static boolean enabled = true;
+    private static boolean debug = false;
     private static long cooldownMs = 1000L;
     private static double speed = 1.5;
     private static float explosionPower = 1.0f;
@@ -58,6 +61,9 @@ public final class FireChargeListener implements Listener {
     public static void init(Main plugin) {
         reloadConfig();
         plugin.getServer().getPluginManager().registerEvents(new FireChargeListener(), plugin);
+        ConsoleLogger.info("[FireCharge] Module enabled (enabled=" + enabled
+                + ", cooldown=" + cooldownMs + "ms, permission=" + Permissions.FIREBALL_USE
+                + ", debug=" + debug + ").");
     }
 
     /** Reads the {@code [fireball]} section of {@code configs/UI-Items.toml}. */
@@ -67,6 +73,7 @@ public final class FireChargeListener implements Listener {
         FileConfiguration cfg = main.getConfig();
 
         enabled = cfg.getBoolean("fireball.enabled", true);
+        debug = cfg.getBoolean("fireball.debug", false);
         cooldownMs = Math.max(0L, cfg.getLong("fireball.cooldown_ms", 1000L));
         speed = Math.max(0.1, cfg.getDouble("fireball.speed", 1.5));
         explosionPower = (float) Math.max(1.0, Math.min(127.0, cfg.getDouble("fireball.explosion_power", 1.0)));
@@ -77,20 +84,37 @@ public final class FireChargeListener implements Listener {
                 Sound.ENTITY_GHAST_SHOOT);
     }
 
-    @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = false)
     public void onInteract(PlayerInteractEvent e) {
         // Only right-click in the air: clicking a block must keep the vanilla
-        // fire placement. Fired once per hand — the off-hand pass would double-shot.
+        // fire placement.
         if (e.getAction() != Action.RIGHT_CLICK_AIR) return;
-        if (e.getHand() != EquipmentSlot.HAND) return;
-        if (!enabled) return;
 
         Player player = e.getPlayer();
-        if (player.getGameMode() == GameMode.SPECTATOR) return;
-        if (!player.hasPermission(Permissions.FIREBALL_USE)) return;
+        EquipmentSlot hand = e.getHand() == null ? EquipmentSlot.HAND : e.getHand();
+        ItemStack item = player.getInventory().getItem(hand);
 
-        ItemStack item = player.getInventory().getItemInMainHand();
-        if (item.getType() != Material.FIRE_CHARGE || item.getAmount() <= 0) return;
+        // Only log when the player is actually holding a charge: this keeps
+        // the debug output free of every other air click.
+        if (item == null || item.getType() != Material.FIRE_CHARGE) return;
+
+        boolean cancelled = e.useItemInHand() == Event.Result.DENY
+                || e.useInteractedBlock() == Event.Result.DENY;
+        boolean permitted = player.isOp() || player.hasPermission(Permissions.FIREBALL_USE);
+        if (debug) {
+            ConsoleLogger.info("[FireCharge] air click: hand=" + hand
+                    + ", item=" + item.getType() + " x" + item.getAmount()
+                    + ", cancelled=" + cancelled
+                    + ", enabled=" + enabled
+                    + ", op=" + player.isOp()
+                    + ", permission=" + permitted);
+        }
+
+        if (cancelled) return;
+        if (!enabled) return;
+        if (player.getGameMode() == GameMode.SPECTATOR) return;
+        if (!permitted) return;
+        if (item.getAmount() <= 0) return;
 
         long now = System.currentTimeMillis();
         Long last = cooldowns.get(player.getUniqueId());
@@ -104,10 +128,10 @@ public final class FireChargeListener implements Listener {
         if (player.getGameMode() != GameMode.CREATIVE) {
             int left = item.getAmount() - 1;
             if (left <= 0) {
-                player.getInventory().setItemInMainHand(null);
+                player.getInventory().setItem(hand, null);
             } else {
                 item.setAmount(left);
-                player.getInventory().setItemInMainHand(item);
+                player.getInventory().setItem(hand, item);
             }
         }
 

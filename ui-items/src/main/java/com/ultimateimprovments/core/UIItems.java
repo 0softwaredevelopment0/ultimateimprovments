@@ -22,7 +22,7 @@ public class UIItems extends JavaPlugin {
     private static final Set<String> OWNED_MODULES = Set.of(
             "Crafting", "EntityLocator", "Waypoint", "Antimatter", "ExpBottleUpgrade",
             "Notes", "UnbreakableBreaker", "ParticleAccelerator", "ItemEnchantListeners",
-            "RemoteDetonator", "Omniscanner");
+            "RemoteDetonator", "FireCharge", "Omniscanner");
 
     private static UIItems instance;
 

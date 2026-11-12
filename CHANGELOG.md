@@ -3,6 +3,27 @@
 All notable changes to the UltimateImprovments plugin family are documented
 in this file.
 
+## [1.8.5-beta.31] - 2026-11-12
+
+### Fixed
+- **Fire Charge air shots did not fire in some setups.** The handler now:
+  - works with the charge in **either hand** (the previous main-hand-only check
+    silently ignored an off-hand charge);
+  - treats a `null` `PlayerInteractEvent#getHand()` as the main hand;
+  - lets server operators through even when LuckPerms has not resolved the new
+    node yet (`isOp() || hasPermission`);
+  - registers at `LOW` with `ignoreCancelled = false` and logs the cancellation
+    state instead of silently skipping an already-cancelled event.
+- **Diagnostics:** `[fireball] debug = false` in `UI-Items.toml` logs every
+  Fire Charge air click to the console with hand, item, cancellation, `enabled`,
+  OP and permission state. The module also prints a startup line
+  (`[FireCharge] Module enabled (...)`) so a stale/missing first-shot jar is
+  immediately visible.
+- **Config routing:** the `fireball` root is now routed to UI-Items in
+  `AddonCatalog`, so config repair writes/reads `[fireball]` from
+  `UI-Items.toml` instead of falling back to the core view. `FireCharge` is
+  included in UI-Items' owned-module report.
+
 ## [1.8.5-beta.30] - 2026-11-12
 
 ### Changed
