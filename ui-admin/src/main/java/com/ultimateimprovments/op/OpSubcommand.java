@@ -7,6 +7,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
 import org.bukkit.Bukkit;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
@@ -71,41 +72,43 @@ public final class OpSubcommand {
     // SHOW CONFIRMATION — single player
     // ════════════════════════════════════════
     private static boolean showConfirmSingle(CommandSender sender, String targetName) {
-        @SuppressWarnings("deprecation")
-        Player target = Bukkit.getPlayerExact(targetName);
+        OfflinePlayer target = OpManager.resolve(targetName);
 
-        if (target == null) {
+        if (target == null || target.getName() == null) {
             sender.sendMessage(MessageUtil.parse(
-                    "<red>Player </red><yellow>" + targetName + "</yellow><red> is not online.</red>"
+                    "<red>Player </red><yellow>" + targetName
+                            + "</yellow><red> is not online and is not known on this server.</red>"
             ));
             return true;
         }
 
-        Boolean listed = OpManager.lookup(target.getName());
+        String name = target.getName();
+        boolean online = target.isOnline();
+        Boolean listed = OpManager.lookup(name);
         if (listed == null) {
             sendListUnavailable(sender);
             return true;
         }
 
-        boolean op = target.isOp();
+        boolean op = OpManager.hasRealOp(target);
 
         if (op && listed) {
             sender.sendMessage(MessageUtil.parse(
-                    "<yellow>" + target.getName() + "</yellow><red> already has OP status and is in the OP list.</red>"
+                    "<yellow>" + name + "</yellow><red> already has OP status and is in the OP list.</red>"
             ));
             return true;
         }
 
         if (op) {
             // Real OP without a list entry — record it so /ui deop can find the player later.
-            if (OpManager.add(target.getName(), sender.getName())) {
+            if (OpManager.add(name, sender.getName())) {
                 sender.sendMessage(MessageUtil.parse(
-                        "<green>✔</green> <yellow>" + target.getName()
+                        "<green>✔</green> <yellow>" + name
                                 + "</yellow> <white>already has OP — added to the OP list.</white>"
                 ));
             } else {
                 sender.sendMessage(MessageUtil.parse(
-                        "<yellow>" + target.getName()
+                        "<yellow>" + name
                                 + "</yellow> <white>already has OP, but the list entry could not be saved.</white> "
                                 + "<gray>Check the database (server console).</gray>"
                 ));
@@ -113,12 +116,16 @@ public final class OpSubcommand {
             return true;
         }
 
+        if (!online) {
+            sendOfflineWarning(sender, name);
+        }
+
         boolean repair = listed;
-        OpManager.setPending(OpManager.getSenderId(sender), "op", target.getName());
+        OpManager.setPending(OpManager.getSenderId(sender), "op", name);
 
         if (repair) {
             sender.sendMessage(MessageUtil.parse(
-                    "<gray>" + target.getName() + " is in the OP list but has no real OP — "
+                    "<gray>" + name + " is in the OP list but has no real OP — "
                             + "confirming will restore it.</gray>"
             ));
         }
@@ -126,7 +133,7 @@ public final class OpSubcommand {
         sendConfirmDialog(sender,
                 repair ? "Restore OP" : "Grant OP",
                 "<green>GRANT</green>",
-                target.getName(),
+                name + (online ? "" : " <dark_gray>(offline)</dark_gray>"),
                 "/ui op confirm");
         return true;
     }
@@ -259,26 +266,28 @@ public final class OpSubcommand {
     }
 
     private static boolean executeGrantSingle(CommandSender sender, String targetName) {
-        @SuppressWarnings("deprecation")
-        Player target = Bukkit.getPlayerExact(targetName);
+        OfflinePlayer target = OpManager.resolve(targetName);
 
-        if (target == null) {
+        if (target == null || target.getName() == null) {
             sender.sendMessage(MessageUtil.parse(
-                    "<red>Player </red><yellow>" + targetName + "</yellow><red> is no longer online!</red>"
+                    "<red>Player </red><yellow>" + targetName
+                            + "</yellow><red> is not known on this server anymore!</red>"
             ));
             return true;
         }
 
-        Boolean listed = OpManager.lookup(target.getName());
+        String name = target.getName();
+        boolean online = target.isOnline();
+        Boolean listed = OpManager.lookup(name);
         if (listed == null) {
             sendListUnavailable(sender);
             return true;
         }
 
-        boolean wasOp = target.isOp();
+        boolean wasOp = OpManager.hasRealOp(target);
         if (wasOp && listed) {
             sender.sendMessage(MessageUtil.parse(
-                    "<yellow>" + target.getName() + "</yellow><red> already has OP status and is in the OP list.</red>"
+                    "<yellow>" + name + "</yellow><red> already has OP status and is in the OP list.</red>"
             ));
             return true;
         }
@@ -289,7 +298,7 @@ public final class OpSubcommand {
         if (!stored) {
             sender.sendMessage(MessageUtil.parse(
                     "<green>✔</green> <gold>Operator</gold> <white>status granted to</white> <yellow>"
-                            + target.getName() + "</yellow><white>.</white>"
+                            + name + "</yellow><white>.</white>"
             ));
             sender.sendMessage(MessageUtil.parse(
                     "<red>⚠</red> <gray>The OP list entry could not be saved — check the database (server console).</gray>"
@@ -297,27 +306,32 @@ public final class OpSubcommand {
         } else if (repair) {
             sender.sendMessage(MessageUtil.parse(
                     "<green>✔</green> <gold>Operator</gold> <white>status restored for</white> <yellow>"
-                            + target.getName() + "</yellow><white> (was in the list without real OP).</white>"
+                            + name + "</yellow><white> (was in the list without real OP).</white>"
             ));
         } else if (wasOp) {
             sender.sendMessage(MessageUtil.parse(
-                    "<green>✔</green> <yellow>" + target.getName()
+                    "<green>✔</green> <yellow>" + name
                             + "</yellow> <white>already had OP — added to the OP list.</white>"
             ));
         } else {
             sender.sendMessage(MessageUtil.parse(
                     "<green>✔</green> <gold>Operator</gold> <white>status granted to</white> <yellow>"
-                            + target.getName() + "</yellow><white>.</white>"
+                            + name + "</yellow><white>.</white>"
             ));
         }
 
-        if (!wasOp) {
-            target.sendMessage(MessageUtil.parse(
-                    "<gold>⚡</gold> <white>You are now an</white> <gold>operator</gold><white>!</white>"
-            ));
+        if (!online) {
+            sendOfflineWarning(sender, name);
+        } else if (!wasOp) {
+            Player player = target.getPlayer();
+            if (player != null) {
+                player.sendMessage(MessageUtil.parse(
+                        "<gold>⚡</gold> <white>You are now an</white> <gold>operator</gold><white>!</white>"
+                ));
+            }
         }
-        ConsoleLogger.info("[OpManager] " + sender.getName() + " granted OP to " + target.getName()
-                + (repair ? " (restored list-only drift)" : ""));
+        ConsoleLogger.info("[OpManager] " + sender.getName() + " granted OP to " + name
+                + (online ? "" : " (offline)") + (repair ? " (restored list-only drift)" : ""));
         return true;
     }
 
@@ -411,6 +425,19 @@ public final class OpSubcommand {
         ));
     }
 
+    /**
+     * Prefix-styled warning shown whenever OP is changed for a player who is
+     * currently offline: the change still lands in {@code ops.json} and the OP
+     * list, but the player receives no in-game notification.
+     */
+    static void sendOfflineWarning(CommandSender sender, String playerName) {
+        sender.sendMessage(MessageUtil.parse(MessageUtil.PREFIX
+                + "<yellow>⚠</yellow> <gray>Player </gray><white>" + playerName + "</white>"
+                + " <gray>is currently offline — the OP change will be written to ops.json "
+                + "and the OP list, and no notification will be sent to the player.</gray>"
+        ));
+    }
+
     private record EligiblePlayers(List<Player> players, int repairs, int listSyncs) {}
 
     // ════════════════════════════════════════
@@ -490,13 +517,16 @@ public final class OpSubcommand {
             List<String> completions = new ArrayList<>();
             completions.add("all");
             completions.add("confirm");
+            java.util.Set<String> names = new java.util.LinkedHashSet<>(completions);
             for (Player p : Bukkit.getOnlinePlayers()) {
                 // Players already fully OP (flag + list) have nothing to grant.
                 if (!p.isOp() || !OpManager.isInList(p.getName())) {
-                    completions.add(p.getName());
+                    names.add(p.getName());
                 }
             }
-            return completions.stream()
+            // Offline list names are repair candidates (in the list, no real OP).
+            names.addAll(OpManager.getList());
+            return names.stream()
                     .filter(s -> s.toLowerCase().startsWith(prefix))
                     .collect(Collectors.toList());
         }

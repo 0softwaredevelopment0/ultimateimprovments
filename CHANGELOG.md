@@ -3,6 +3,24 @@
 All notable changes to the UltimateImprovments plugin family are documented
 in this file.
 
+## [1.8.5-beta.27] - 2026-11-12
+
+### Changed
+- **`/ui op <player>` and `/ui deop <player>` now work for offline players.**
+  The name is resolved with `Bukkit.getPlayerExact` first and then
+  `Bukkit.getOfflinePlayerIfCached` (no blocking profile lookup, so only names
+  this server has seen are accepted). `OfflinePlayer#setOp` rewrites `ops.json`
+  and the `op_list` entry is updated through `OpManager.grant/revoke`, exactly
+  like the online path. A name the server has never seen is rejected with
+  "is not online and is not known on this server".
+- **Offline targets get a prefixed warning.** Before the confirmation dialog and
+  in the result the command prints a `MessageUtil.PREFIX`-styled line: the change
+  will be written to `ops.json` and the OP list, and the player receives no
+  notification. The confirmation dialog marks the target `(offline)`.
+- **Tab completion follows.** `/ui op` suggests OP-list names (repair
+  candidates); `/ui deop` suggests every list entry and every real operator,
+  online or offline.
+
 ## [1.8.5-beta.26] - 2026-11-12
 
 ### Changed

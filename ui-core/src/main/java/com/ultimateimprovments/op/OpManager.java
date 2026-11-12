@@ -188,14 +188,47 @@ public final class OpManager {
      * @return {@code true} when the list entry exists after the call.
      */
     public static boolean grant(Player player, String addedBy) {
-        player.setOp(true);
+        return grantState(player, addedBy);
+    }
+
+    /**
+     * Grants real OP and records the player in the OP list for an offline
+     * player as well ({@code OfflinePlayer#setOp(true)} rewrites
+     * {@code ops.json} without the player being online).
+     *
+     * @return {@code true} when the list entry exists after the call.
+     */
+    @SuppressWarnings("deprecation")
+    public static boolean grant(OfflinePlayer player, String addedBy) {
+        return grantState(player, addedBy);
+    }
+
+    private static boolean grantState(OfflinePlayer player, String addedBy) {
         String name = player.getName();
+        if (name == null) return false;
+        player.setOp(true);
         Boolean listed = lookup(name);
         if (Boolean.TRUE.equals(listed)) return true;
         if (listed == null) return false;
         if (add(name, addedBy)) return true;
         // A concurrent insert (or a transient write failure) — verify instead of guessing.
         return Boolean.TRUE.equals(lookup(name));
+    }
+
+    /** Online status of real OP, safe for offline players ({@code ops.json}). */
+    @SuppressWarnings("deprecation")
+    public static boolean hasRealOp(OfflinePlayer player) {
+        return player.isOp();
+    }
+
+    /**
+     * Resolves an online or cached offline player by name. Returns {@code null}
+     * for a name this server has never seen (no blocking profile lookup).
+     */
+    public static OfflinePlayer resolve(String name) {
+        Player online = org.bukkit.Bukkit.getPlayerExact(name);
+        if (online != null) return online;
+        return org.bukkit.Bukkit.getOfflinePlayerIfCached(name);
     }
 
     /**
