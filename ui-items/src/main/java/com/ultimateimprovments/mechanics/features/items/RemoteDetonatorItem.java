@@ -36,9 +36,9 @@ public final class RemoteDetonatorItem {
 
     private static final String DEFAULT_NAME = "<white>Remote Detonator *</white>";
     private static final List<String> DEFAULT_LORE = List.of(
-            "<gray>RMB — detonate the bound TNT</gray>",
+            "<gray>RMB in the air — detonate the bound TNT</gray>",
             "<gray>Shift + RMB on TNT — bind it</gray>",
-            "<gray>Shift + RMB elsewhere — clear the binding</gray>");
+            "<gray>Shift + RMB in the air or elsewhere — clear the binding</gray>");
 
     private RemoteDetonatorItem() {}
 

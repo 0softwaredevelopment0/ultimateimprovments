@@ -15,6 +15,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.entity.TNTPrimed;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
+import org.bukkit.event.Event;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockDispenseEvent;
@@ -29,12 +30,15 @@ import java.util.UUID;
 /**
  * Remote Detonator interaction:
  * <ul>
- *   <li><b>RMB</b> — detonate the bound TNT block (vanilla redstone ignition:
- *       the block is consumed and a primed TNT with the configured fuse takes
- *       its place);</li>
+ *   <li><b>RMB in the air</b> — detonate the bound TNT block (vanilla redstone
+ *       ignition: the block is consumed and a primed TNT with the configured
+ *       fuse takes its place);</li>
  *   <li><b>Shift + RMB on TNT</b> — bind that block (one binding, re-binding
  *       overrides the previous one);</li>
- *   <li><b>Shift + RMB anywhere else</b> — clear the binding.</li>
+ *   <li><b>Shift + RMB on a non-TNT block</b> — clear the binding;</li>
+ *   <li><b>Shift + RMB in the air</b> — clear the binding;</li>
+ *   <li><b>RMB on a block</b> — does not detonate; shows the {@code air_only}
+ *       actionbar hint.</li>
  * </ul>
  * The binding lives in the item's PDC, so it survives restarts and travels with
  * the item. Settings: {@code [remote_detonator]} in {@code configs/UI-Items.toml}.
@@ -73,21 +77,25 @@ public final class RemoteDetonatorListener implements Listener {
                 Sound.BLOCK_NOTE_BLOCK_PLING);
     }
 
-    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = false)
     public void onInteract(PlayerInteractEvent e) {
-        // Fired once per hand — the off-hand pass would double-fire.
-        if (e.getHand() != EquipmentSlot.HAND) return;
-
-        ItemStack item = e.getItem();
-        if (!RemoteDetonatorItem.isDetonator(item)) return;
-
         Action action = e.getAction();
         if (action != Action.RIGHT_CLICK_BLOCK && action != Action.RIGHT_CLICK_AIR) return;
 
+        Player player = e.getPlayer();
+        EquipmentSlot hand = e.getHand() == null ? EquipmentSlot.HAND : e.getHand();
+        ItemStack item = player.getInventory().getItem(hand);
+        if (!RemoteDetonatorItem.isDetonator(item)) return;
+
+        // Bukkit quirk: RIGHT_CLICK_AIR has no block, so useInteractedBlock() is
+        // DENY by default and isCancelled() is always true. Only useItemInHand()
+        // is a real cancellation signal.
+        if (e.useItemInHand() == Event.Result.DENY) return;
+
         Block clicked = e.getClickedBlock();
 
-        // Containers, doors, buttons and friends keep their vanilla behaviour;
-        // everything else (air included) is ours, so the detonator is NEVER a
+        // Containers, doors, buttons and friends keep their vanilla behaviour.
+        // Everything else (air included) is ours, so the detonator is NEVER a
         // flint and steel: no fire, no vanilla TNT priming, no vanilla wear.
         if (clicked != null && isInteractive(clicked.getType())
                 && !isIgnitable(clicked.getType())) {
@@ -97,11 +105,20 @@ public final class RemoteDetonatorListener implements Listener {
 
         if (!enabled) return;
 
-        Player player = e.getPlayer();
+        // Detonation and reset are air-only. Clicking a block never detonates.
+        if (action == Action.RIGHT_CLICK_AIR) {
+            if (player.isSneaking()) {
+                reset(player, item);
+            } else {
+                detonate(player, item, hand);
+            }
+            return;
+        }
+
         if (player.isSneaking()) {
             bind(player, item, clicked);
         } else {
-            detonate(player, item);
+            sendActionBar(player, "air_only");
         }
     }
 
@@ -114,6 +131,15 @@ public final class RemoteDetonatorListener implements Listener {
     // =========================
     // BINDING
     // =========================
+
+    private void reset(Player player, ItemStack item) {
+        if (RemoteDetonatorItem.getTarget(item) == null) {
+            send(player, "nothing_bound");
+            return;
+        }
+        RemoteDetonatorItem.clearTarget(item);
+        send(player, "reset");
+    }
 
     private void bind(Player player, ItemStack item, Block clicked) {
         if (clicked == null) {
@@ -141,7 +167,7 @@ public final class RemoteDetonatorListener implements Listener {
     // DETONATION
     // =========================
 
-    private void detonate(Player player, ItemStack item) {
+    private void detonate(Player player, ItemStack item, EquipmentSlot hand) {
         DetonatorTarget target = RemoteDetonatorItem.getTarget(item);
         if (target == null) {
             send(player, "nothing_bound");
@@ -193,12 +219,12 @@ public final class RemoteDetonatorListener implements Listener {
         send(player, "detonated", target);
 
         if (RemoteDetonatorItem.useOnce(item)) {
-            breakItem(player);
+            breakItem(player, hand);
         }
     }
 
-    private void breakItem(Player player) {
-        player.getInventory().setItemInMainHand(new ItemStack(Material.AIR));
+    private void breakItem(Player player, EquipmentSlot hand) {
+        player.getInventory().setItem(hand, new ItemStack(Material.AIR));
         SoundUtil.playSound(player, Sound.ENTITY_ITEM_BREAK, 1.0f, 1.0f);
         send(player, "broken");
     }
@@ -234,8 +260,17 @@ public final class RemoteDetonatorListener implements Listener {
                 || name.endsWith("_CANDLE_CAKE");
     }
 
-    /** Sends {@code remote_detonator.<key>} with the target placeholders applied. */
-    private static void send(Player player, String key) {
+    /** Sends {@code remote_detonator.<key>} to the actionbar, without a plugin prefix. */
+    private static void sendActionBar(Player player, String key) {
+        String raw = MessagesManager.getString("remote_detonator." + key, "");
+        if (raw == null || raw.isBlank()) return;
+        if (maxDistance > 0) {
+            raw = raw.replace("%max%", Long.toString(Math.round(maxDistance)));
+        }
+        player.sendActionBar(MessageUtil.parse(raw, player));
+    }
+
+    /** Sends {@code remote_detonator.<key>} with the target placeholders applied. */    private static void send(Player player, String key) {
         send(player, key, null);
     }
 

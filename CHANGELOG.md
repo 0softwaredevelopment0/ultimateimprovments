@@ -3,6 +3,27 @@
 All notable changes to the UltimateImprovments plugin family are documented
 in this file.
 
+## [1.8.5-beta.33] - 2026-11-12
+
+### Changed
+- **Remote Detonator now detonates only from an air click.** RMB on a block no
+  longer triggers the charge; it cancels the vanilla flint-and-steel use and
+  shows the new `remote_detonator.air_only` message in the **actionbar**
+  (no plugin prefix). Russian default: «Взрывать детонатором можно только по
+  воздуху (ПКМ)!»; English: "You have to click RMB to AIR to use detonator!".
+- **Reset moved to Shift + RMB in the air.** A bound detonator clears its
+  binding there; an unbound one reports `nothing_bound`. Shift + RMB on a
+  non-TNT block also clears the binding (unchanged), Shift + RMB on TNT still
+  binds/rebinds. Interactive non-ignitable blocks (chests, doors, buttons) keep
+  their vanilla behaviour.
+- **Air-click bug fixed for the detonator too.** It used
+  `@EventHandler(ignoreCancelled = true)`, which Bukkit treats as always-cancelled
+  for `RIGHT_CLICK_AIR` (see beta.32); it now uses `ignoreCancelled = false` and
+  checks only `useItemInHand() == DENY`.
+- The detonator works from either hand; durability break clears the hand that
+  was actually used. Item lore defaults and the Russian/English `lore` config
+  entries describe the new bind/detonate/reset scheme.
+
 ## [1.8.5-beta.32] - 2026-11-12
 
 ### Fixed
