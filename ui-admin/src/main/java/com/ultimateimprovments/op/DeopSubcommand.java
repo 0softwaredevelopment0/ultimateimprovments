@@ -11,7 +11,10 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -19,7 +22,9 @@ import java.util.stream.Collectors;
  * <p>
  * Usage:
  *   /ui deop <player>    — revoke OP from a specific player
- *   /ui deop all         — revoke OP from ALL players in the OP list
+ *   /ui deop all         — revoke OP from everyone in the OP list AND every real
+ *                          OP (online or offline, including OPs missing from the
+ *                          list); stale list-only entries are dropped
  *   /ui deop confirm     — confirm a pending deop action
  * <p>
  * A player who is in the OP list but has no real OP is not an error: the
@@ -121,11 +126,11 @@ public final class DeopSubcommand {
     // SHOW CONFIRMATION — all
     // ════════════════════════════════════════
     private static boolean showConfirmAll(CommandSender sender) {
-        List<String> opList = OpManager.getList();
+        List<Target> targets = collectTargets();
 
-        if (opList.isEmpty()) {
+        if (targets.isEmpty()) {
             sender.sendMessage(MessageUtil.parse(
-                    "<red>The OP list is empty. No players to revoke.</red>"
+                    "<red>No OP players found. The OP list is empty and nobody has real OP.</red>"
             ));
             return true;
         }
@@ -133,12 +138,22 @@ public final class DeopSubcommand {
         // Store pending
         OpManager.setPending(OpManager.getSenderId(sender), "deop", "all");
 
-        // Build display
-        String names = opList.stream()
-                .map(name -> {
-                    Player p = Bukkit.getPlayerExact(name);
-                    boolean online = p != null && p.isOnline();
-                    return (online ? "<green>" : "<gray>") + name + "</gray>";
+        int listedCount = (int) targets.stream().filter(Target::listed).count();
+        int opOnlyCount = (int) targets.stream().filter(t -> t.realOp() && !t.listed()).count();
+        int offlineCount = (int) targets.stream().filter(t -> t.online() == null).count();
+
+        // Build display: online names green, offline gray; tags show the source of each target.
+        String names = targets.stream()
+                .map(t -> {
+                    boolean online = t.online() != null;
+                    String color = online ? "<green>" : "<gray>";
+                    String colorClose = online ? "</green>" : "</gray>";
+                    StringBuilder tags = new StringBuilder();
+                    if (t.realOp()) tags.append(" <gold>[OP]</gold>");
+                    if (t.listed() && !t.realOp()) tags.append(" <red>[list-only]</red>");
+                    if (t.realOp() && !t.listed()) tags.append(" <yellow>[op-only]</yellow>");
+                    if (!online) tags.append(" <dark_gray>(offline)</dark_gray>");
+                    return color + t.name() + colorClose + tags;
                 })
                 .collect(Collectors.joining("<gray>, </gray>"));
 
@@ -156,7 +171,12 @@ public final class DeopSubcommand {
                 "<dark_gray>┃</dark_gray> <gray>Action:</gray> <red>REVOKE</red>"
         ));
         sender.sendMessage(MessageUtil.parse(
-                "<dark_gray>┃</dark_gray> <gray>Targets:</gray> <white>" + opList.size() + " players in OP list</white>"
+                "<dark_gray>┃</dark_gray> <gray>Targets:</gray> <white>" + targets.size() + " players</white>"
+        ));
+        sender.sendMessage(MessageUtil.parse(
+                "<dark_gray>┃</dark_gray> <gray>In OP list:</gray> <white>" + listedCount
+                        + "</white><gray> | real OP outside list:</gray> <yellow>" + opOnlyCount
+                        + "</yellow><gray> | offline:</gray> <white>" + offlineCount + "</white>"
         ));
         sender.sendMessage(MessageUtil.parse(
                 "<dark_gray>┃</dark_gray> <gray>Players:</gray> " + names
@@ -279,53 +299,111 @@ public final class DeopSubcommand {
     }
 
     private static boolean executeRevokeAll(CommandSender sender) {
-        List<String> opList = OpManager.getList();
+        List<Target> targets = collectTargets();
 
-        if (opList.isEmpty()) {
+        if (targets.isEmpty()) {
             sender.sendMessage(MessageUtil.parse(
-                    "<red>The OP list is empty. No players to revoke.</red>"
+                    "<red>No OP players found. The OP list is empty and nobody has real OP.</red>"
             ));
             return true;
         }
 
-        int count = 0;
+        int revoked = 0;
+        int staleEntries = 0;
         int failed = 0;
-        for (String name : opList) {
-            Player target = Bukkit.getPlayerExact(name);
+        for (Target t : targets) {
             boolean ok;
-            if (target != null && target.isOnline()) {
-                ok = OpManager.revoke(target);
-                if (ok) {
-                    target.sendMessage(MessageUtil.parse(
+            if (t.online() != null) {
+                ok = OpManager.revoke(t.online());
+                if (ok && t.realOp()) {
+                    t.online().sendMessage(MessageUtil.parse(
                             "<red>⛔</red> <white>Your</white> <gold>operator</gold> <white>status has been revoked.</white>"
                     ));
                 }
+            } else if (t.realOp() && t.offline() != null) {
+                // Offline OP: OfflinePlayer#setOp rewrites ops.json without the player being online.
+                ok = OpManager.revoke(t.offline());
             } else {
-                ok = OpManager.remove(name);
+                // List-only entry with no real OP — nothing to revoke, just drop the record.
+                ok = OpManager.remove(t.name()) || Boolean.FALSE.equals(OpManager.lookup(t.name()));
             }
-            if (ok) {
-                count++;
-            } else {
+
+            if (!ok) {
                 failed++;
+            } else if (t.realOp()) {
+                revoked++;
+            } else {
+                staleEntries++;
             }
         }
 
         sender.sendMessage(MessageUtil.parse(
-                "<green>✔</green> <gold>Operator</gold> <white>status revoked from </white><yellow>" + count + "</yellow><white> players.</white>"
+                "<green>✔</green> <gold>Operator</gold> <white>status revoked from </white><yellow>" + revoked + "</yellow><white> players.</white>"
         ));
+        if (staleEntries > 0) {
+            sender.sendMessage(MessageUtil.parse(
+                    "<gray>Removed </gray><yellow>" + staleEntries
+                            + "</yellow><gray> stale OP list entries that had no real OP.</gray>"
+            ));
+        }
         if (failed > 0) {
             sender.sendMessage(MessageUtil.parse(
                     "<red>⚠</red> <gray>Could not update </gray><yellow>" + failed
-                            + "</yellow><gray> list entries — check the database (server console).</gray>"
+                            + "</yellow><gray> targets (real OP or list entry) — check the server console.</gray>"
             ));
         }
-        ConsoleLogger.info("[OpManager] " + sender.getName() + " revoked OP from " + count + " players (all)");
+        ConsoleLogger.info("[OpManager] " + sender.getName() + " revoked OP from " + revoked
+                + " players (all), removed " + staleEntries + " stale entries, " + failed + " failed");
         return true;
     }
 
     // ════════════════════════════════════════
     // HELPERS
     // ════════════════════════════════════════
+    /**
+     * Union of everyone who has real OP ({@link Bukkit#getOperators()}, online or
+     * offline) and everyone recorded in the OP list. Keyed by lowercase name so
+     * an entry that appears in both sources is handled once.
+     */
+    private static List<Target> collectTargets() {
+        Map<String, Target> byName = new LinkedHashMap<>();
+
+        for (String name : OpManager.getList()) {
+            byName.put(name.toLowerCase(Locale.ROOT), new Target(name, null, null, true, false));
+        }
+
+        for (org.bukkit.OfflinePlayer op : Bukkit.getOperators()) {
+            String name = op.getName();
+            if (name == null) continue;
+            String key = name.toLowerCase(Locale.ROOT);
+            Target existing = byName.get(key);
+            boolean listed = existing != null && existing.listed();
+            byName.put(key, new Target(name, op.isOnline() ? op.getPlayer() : null, op, listed, true));
+        }
+
+        // Resolve online players for list entries and give cached names their real case.
+        byName.replaceAll((key, t) -> {
+            if (t.online() != null) return t;
+            Player online = Bukkit.getPlayerExact(t.name());
+            if (online != null) {
+                return new Target(online.getName(), online, t.offline(), t.listed(), t.realOp());
+            }
+            if (t.offline() == null) {
+                org.bukkit.OfflinePlayer cached = Bukkit.getOfflinePlayerIfCached(t.name());
+                if (cached != null && cached.getName() != null) {
+                    return new Target(cached.getName(), null, cached, t.listed(), false);
+                }
+            }
+            return t;
+        });
+
+        return new ArrayList<>(byName.values());
+    }
+
+    /** One `/ui deop all` target: the list entry, the real OP flag, or both. */
+    private record Target(String name, Player online, org.bukkit.OfflinePlayer offline,
+                          boolean listed, boolean realOp) {}
+
     /** Drops an OP-list entry for a player who has no real OP (previous desync). */
     private static void removeStaleEntry(CommandSender sender, String playerName) {
         boolean removed = OpManager.remove(playerName);

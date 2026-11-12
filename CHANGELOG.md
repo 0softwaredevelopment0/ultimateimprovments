@@ -3,6 +3,21 @@
 All notable changes to the UltimateImprovments plugin family are documented
 in this file.
 
+## [1.8.5-beta.26] - 2026-11-12
+
+### Changed
+- **`/ui deop all` now revokes every real OP, not just the OP list.** Targets are
+  the union of the `op_list` table and `Bukkit.getOperators()` (ops.json), so
+  players who were granted OP outside `/ui op` — including **offline** players
+  from `ops.json` — are deopped too. Stale list-only entries (listed, no real OP)
+  are simply dropped. The confirmation dialog shows each target's source:
+  `[OP]`, `[op-only]`, `[list-only]`, plus an offline marker and counts
+  (in list / real OP outside list / offline). The result message separates real
+  revocations from removed stale entries and reports failures.
+- `OpManager.revoke(OfflinePlayer)` was added for the offline path
+  (`OfflinePlayer#setOp(false)` rewrites `ops.json` without the player being
+  online) and shares the list-removal logic with the online overload.
+
 ## [1.8.5-beta.25] - 2026-11-12
 
 ### Fixed

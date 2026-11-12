@@ -2,6 +2,7 @@ package com.ultimateimprovments.op;
 
 import com.ultimateimprovments.database.DatabaseManager;
 import com.ultimateimprovments.util.ConsoleLogger;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 
 import java.sql.*;
@@ -204,7 +205,26 @@ public final class OpManager {
      */
     public static boolean revoke(Player player) {
         player.setOp(false);
-        String name = player.getName();
+        return dropEntry(player.getName());
+    }
+
+    /**
+     * Revokes real OP and drops the list entry for an offline player as well —
+     * works for entries from {@code Bukkit.getOperators()}, including players
+     * who are not on the server right now ({@code OfflinePlayer#setOp} updates
+     * {@code ops.json}).
+     *
+     * @return {@code true} when the list entry is gone after the call.
+     */
+    @SuppressWarnings("deprecation")
+    public static boolean revoke(OfflinePlayer player) {
+        player.setOp(false);
+        return dropEntry(player.getName());
+    }
+
+    /** Removes one list entry and verifies the result. */
+    private static boolean dropEntry(String name) {
+        if (name == null) return false;
         if (Boolean.FALSE.equals(lookup(name))) return true;
         remove(name);
         return Boolean.FALSE.equals(lookup(name));
