@@ -3,6 +3,21 @@
 All notable changes to the UltimateImprovments plugin family are documented
 in this file.
 
+## [1.8.5-beta.32] - 2026-11-12
+
+### Fixed
+- **Fire Charge air shots were skipped because of the Bukkit air-click quirk.**
+  For `Action.RIGHT_CLICK_AIR` there is no clicked block, so
+  `PlayerInteractEvent` initialises `useInteractedBlock()` to `DENY`, and the
+  legacy `isCancelled()` delegates to that value. With
+  `@EventHandler(ignoreCancelled = true)` the event was therefore **always**
+  filtered out for air clicks, and the later manual `useInteractedBlock()`
+  check reproduced the same false positive (`cancelled=true` in the debug log).
+  The listener now stays at `LOW` with `ignoreCancelled = false` and treats only
+  `useItemInHand() == DENY` as a real cancellation.
+- Debug output now prints `itemDenied` and `blockResult` separately so the air
+  quirk is explicit.
+
 ## [1.8.5-beta.31] - 2026-11-12
 
 ### Fixed

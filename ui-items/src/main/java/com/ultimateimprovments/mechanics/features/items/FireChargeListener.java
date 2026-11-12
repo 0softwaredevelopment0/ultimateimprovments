@@ -98,19 +98,22 @@ public final class FireChargeListener implements Listener {
         // the debug output free of every other air click.
         if (item == null || item.getType() != Material.FIRE_CHARGE) return;
 
-        boolean cancelled = e.useItemInHand() == Event.Result.DENY
-                || e.useInteractedBlock() == Event.Result.DENY;
+        // Bukkit quirk: for RIGHT_CLICK_AIR the clicked block is null, so
+        // useInteractedBlock() is DENY by default and isCancelled() is always
+        // true. Only useItemInHand() carries a real cancellation signal here.
+        boolean itemDenied = e.useItemInHand() == Event.Result.DENY;
         boolean permitted = player.isOp() || player.hasPermission(Permissions.FIREBALL_USE);
         if (debug) {
             ConsoleLogger.info("[FireCharge] air click: hand=" + hand
                     + ", item=" + item.getType() + " x" + item.getAmount()
-                    + ", cancelled=" + cancelled
+                    + ", itemDenied=" + itemDenied
+                    + ", blockResult=" + e.useInteractedBlock()
                     + ", enabled=" + enabled
                     + ", op=" + player.isOp()
                     + ", permission=" + permitted);
         }
 
-        if (cancelled) return;
+        if (itemDenied) return;
         if (!enabled) return;
         if (player.getGameMode() == GameMode.SPECTATOR) return;
         if (!permitted) return;
