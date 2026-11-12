@@ -105,7 +105,8 @@ bind_sound = "BLOCK_NOTE_BLOCK_PLING"
 # Master switch (true = right-click in air shoots, false = vanilla behaviour only).
 # Default: true
 enabled = true
-# Cooldown between shots of one player, milliseconds.
+# Usage also requires the ui.fireball.use permission (default: nobody).
+# cooldown_ms — cooldown between shots of one player, milliseconds.
 # Default: 1000
 cooldown_ms = 1000
 # Projectile speed in blocks per tick.

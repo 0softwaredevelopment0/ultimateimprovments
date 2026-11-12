@@ -2,6 +2,7 @@ package com.ultimateimprovments.mechanics.features.items;
 
 import com.ultimateimprovments.core.Keys;
 import com.ultimateimprovments.core.Main;
+import com.ultimateimprovments.core.Permissions;
 import com.ultimateimprovments.util.SoundUtil;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
@@ -86,6 +87,7 @@ public final class FireChargeListener implements Listener {
 
         Player player = e.getPlayer();
         if (player.getGameMode() == GameMode.SPECTATOR) return;
+        if (!player.hasPermission(Permissions.FIREBALL_USE)) return;
 
         ItemStack item = player.getInventory().getItemInMainHand();
         if (item.getType() != Material.FIRE_CHARGE || item.getAmount() <= 0) return;

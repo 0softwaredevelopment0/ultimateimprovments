@@ -3,6 +3,15 @@
 All notable changes to the UltimateImprovments plugin family are documented
 in this file.
 
+## [1.8.5-beta.30] - 2026-11-12
+
+### Changed
+- **Fireball shots now require the `ui.fireball.use` permission** (registered in
+  UI-Core, default `FALSE`, so it must be granted via LuckPerms). The check runs
+  before the item/cooldown logic; players without the permission get the normal
+  vanilla right-click-in-air behaviour instead of a shot. Noted in the
+  `[fireball]` comments in `UI-Items.toml`.
+
 ## [1.8.5-beta.29] - 2026-11-12
 
 ### Added
