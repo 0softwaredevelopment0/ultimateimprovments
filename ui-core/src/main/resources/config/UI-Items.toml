@@ -75,7 +75,8 @@ collision_recipes = [{ material_a = "GOLD_INGOT", material_b = "DIAMOND", speed_
 
 # Remote Detonator — binds one TNT block and detonates it from afar.
 # Detonation: RMB in the air only (RMB on a block shows the air_only hint).
-# Bind: Shift + RMB on TNT. Reset: Shift + RMB in the air or on a non-TNT block.
+# Bind: Shift + RMB on TNT. Reset: Shift + RMB in the air only
+# (Shift + RMB on any other block shows the shift_air_only hint).
 [remote_detonator]
 # Master switch (false = the item exists but reacts to nothing).
 # Default: true
@@ -148,7 +149,7 @@ crafter_only = "<gold>✧</gold> <gray>This item can only be crafted in a</gray>
 # ── Remote Detonator (Russian) ──
 [messages.remote_detonator]
 name = "<white>Remote Detonator *</white>"
-lore = ["<gray>ПКМ по воздуху — подорвать привязанный ТНТ</gray>", "<gray>Shift + ПКМ по ТНТ — привязать</gray>", "<gray>Shift + ПКМ по воздуху или мимо — сбросить привязку</gray>"]
+lore = ["<gray>ПКМ по воздуху — подорвать привязанный ТНТ</gray>", "<gray>Shift + ПКМ по ТНТ — привязать</gray>", "<gray>Shift + ПКМ по воздуху — сбросить привязку</gray>"]
 bound = "<green>✔</green> <white>Привязано к ТНТ:</white> <gold>%world% %x% %y% %z%</gold>"
 rebound = "<green>✔</green> <white>Привязка переопределена:</white> <gold>%world% %x% %y% %z%</gold>"
 reset = "<yellow>✧</yellow> <gray>Привязка сброшена.</gray>"
@@ -161,11 +162,12 @@ too_far = "<red>❌</red> <gray>Слишком далеко до заряда (�
 cooldown = "<yellow>✧</yellow> <gray>Детонатор ещё не готов к следующему подрыву.</gray>"
 broken = "<red>✧</red> <gray>Детонатор износился и сломался.</gray>"
 air_only = "<red>Взрывать детонатором можно только по воздуху (ПКМ)!</red>"
+shift_air_only = "<red>Сбросить привязку можно только Shift+ПКМ по воздуху!</red>"
 
 # ── Remote Detonator (English) ──
 [messages_en.remote_detonator]
 name = "<white>Remote Detonator *</white>"
-lore = ["<gray>RMB in the air — detonate the bound TNT</gray>", "<gray>Shift + RMB on TNT — bind it</gray>", "<gray>Shift + RMB in the air or elsewhere — clear the binding</gray>"]
+lore = ["<gray>RMB in the air — detonate the bound TNT</gray>", "<gray>Shift + RMB on TNT — bind it</gray>", "<gray>Shift + RMB in the air — clear the binding</gray>"]
 bound = "<green>✔</green> <white>Bound to TNT at</white> <gold>%world% %x% %y% %z%</gold>"
 rebound = "<green>✔</green> <white>Binding moved to</white> <gold>%world% %x% %y% %z%</gold>"
 reset = "<yellow>✧</yellow> <gray>Binding cleared.</gray>"
@@ -178,3 +180,4 @@ too_far = "<red>❌</red> <gray>The charge is out of reach (limit %max% blocks).
 cooldown = "<yellow>✧</yellow> <gray>The detonator is not ready for another blast yet.</gray>"
 broken = "<red>✧</red> <gray>The detonator wore out and broke.</gray>"
 air_only = "<red>You have to click RMB to AIR to use detonator!</red>"
+shift_air_only = "<red>You have to click Shift+RMB to AIR to use detonator!</red>"

@@ -3,6 +3,23 @@
 All notable changes to the UltimateImprovments plugin family are documented
 in this file.
 
+## [1.8.5-beta.34] - 2026-11-12
+
+### Changed
+- **Detonator reset is now air-only.** Shift + RMB in the air clears the
+  binding. Shift + RMB on a non-TNT block no longer resets it: the click is
+  cancelled and the new `remote_detonator.shift_air_only` actionbar message is
+  shown (RU: «Сбросить привязку можно только Shift+ПКМ по воздуху!», EN:
+  "You have to click Shift+RMB to AIR to use detonator!").
+- RMB on a block keeps the `air_only` actionbar hint, and Shift + RMB on TNT
+  still binds/rebinds. Interactive non-ignitable blocks keep their vanilla
+  behaviour.
+- Rechecked the interaction-event handling for both the detonator and Fire
+  Charge after the beta.32 air-click fix: both use `ignoreCancelled = false` and
+  check only `useItemInHand() == DENY`, so `RIGHT_CLICK_AIR` is never dropped by
+  the block-result quirk. Item lore and the `[remote_detonator]` config comment
+  now describe the air-only reset.
+
 ## [1.8.5-beta.33] - 2026-11-12
 
 ### Changed

@@ -35,10 +35,11 @@ import java.util.UUID;
  *       fuse takes its place);</li>
  *   <li><b>Shift + RMB on TNT</b> — bind that block (one binding, re-binding
  *       overrides the previous one);</li>
- *   <li><b>Shift + RMB on a non-TNT block</b> — clear the binding;</li>
  *   <li><b>Shift + RMB in the air</b> — clear the binding;</li>
  *   <li><b>RMB on a block</b> — does not detonate; shows the {@code air_only}
- *       actionbar hint.</li>
+ *       actionbar hint;</li>
+ *   <li><b>Shift + RMB on a non-TNT block</b> — does not reset; shows the
+ *       {@code shift_air_only} actionbar hint.</li>
  * </ul>
  * The binding lives in the item's PDC, so it survives restarts and travels with
  * the item. Settings: {@code [remote_detonator]} in {@code configs/UI-Items.toml}.
@@ -115,11 +116,19 @@ public final class RemoteDetonatorListener implements Listener {
             return;
         }
 
-        if (player.isSneaking()) {
-            bind(player, item, clicked);
-        } else {
-            sendActionBar(player, "air_only");
+        // RIGHT_CLICK_BLOCK: only Shift+RMB on TNT binds. Every other block
+        // click is cancelled with a hint — reset happens ONLY in the air.
+        boolean tnt = clicked != null && clicked.getType() == Material.TNT;
+        if (tnt) {
+            if (player.isSneaking()) {
+                bind(player, item, clicked);
+            } else {
+                sendActionBar(player, "air_only");
+            }
+            return;
         }
+
+        sendActionBar(player, player.isSneaking() ? "shift_air_only" : "air_only");
     }
 
     /** A dispenser holding the detonator must not light fires either. */
@@ -143,14 +152,12 @@ public final class RemoteDetonatorListener implements Listener {
 
     private void bind(Player player, ItemStack item, Block clicked) {
         if (clicked == null) {
-            send(player, "no_block");
+            sendActionBar(player, player.isSneaking() ? "shift_air_only" : "air_only");
             return;
         }
 
         if (clicked.getType() != Material.TNT) {
-            boolean hadBinding = RemoteDetonatorItem.getTarget(item) != null;
-            RemoteDetonatorItem.clearTarget(item);
-            send(player, hadBinding ? "reset" : "no_block");
+            sendActionBar(player, player.isSneaking() ? "shift_air_only" : "air_only");
             return;
         }
 
