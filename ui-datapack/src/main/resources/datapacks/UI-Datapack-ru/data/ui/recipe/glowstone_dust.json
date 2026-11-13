@@ -1,0 +1,28 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "show_notification": true,
+  "group": "glowstone_dust",
+  "category": "misc",
+  "pattern": [
+    "SGB",
+    "R  "
+  ],
+  "key": {
+    "S": [
+      "minecraft:sugar"
+    ],
+    "G": [
+      "minecraft:gunpowder"
+    ],
+    "B": [
+      "minecraft:blaze_powder"
+    ],
+    "R": [
+      "minecraft:redstone"
+    ]
+  },
+  "result": {
+    "id": "minecraft:glowstone_dust",
+    "count": 1
+  }
+}

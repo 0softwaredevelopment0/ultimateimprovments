@@ -1,0 +1,26 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "show_notification": true,
+  "group": "soul_sand",
+  "category": "misc",
+  "pattern": [
+    "PPP",
+    "DDD",
+    "NNN"
+  ],
+  "key": {
+    "P": [
+      "minecraft:podzol"
+    ],
+    "N": [
+      "minecraft:netherrack"
+    ],
+    "D": [
+      "minecraft:dirt"
+    ]
+  },
+  "result": {
+    "id": "minecraft:soul_sand",
+    "count": 1
+  }
+}

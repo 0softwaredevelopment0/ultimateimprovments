@@ -1,0 +1,26 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "show_notification": true,
+  "group": "enchanting_table",
+  "category": "misc",
+  "pattern": [
+    " B ",
+    "DOD",
+    "OOO"
+  ],
+  "key": {
+    "B": [
+      "minecraft:bookshelf"
+    ],
+    "D": [
+      "minecraft:diamond_block"
+    ],
+    "O": [
+      "minecraft:obsidian"
+    ]
+  },
+  "result": {
+    "id": "minecraft:enchanting_table",
+    "count": 1
+  }
+}

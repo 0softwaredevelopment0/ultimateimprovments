@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "show_notification": true,
+  "group": "ghast_tear",
+  "category": "misc",
+  "pattern": [
+    "DDD",
+    "DWD",
+    "DDD"
+  ],
+  "key": {
+    "D": [
+      "minecraft:dried_ghast"
+    ],
+    "W": [
+      "minecraft:water_bucket"
+    ]
+  },
+  "result": {
+    "id": "minecraft:ghast_tear",
+    "count": 1
+  }
+}

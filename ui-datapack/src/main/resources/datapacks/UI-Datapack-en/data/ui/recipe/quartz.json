@@ -1,0 +1,33 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "show_notification": true,
+  "group": "quartz",
+  "pattern": [
+    "BFS",
+    "PDC"
+  ],
+  "key": {
+    "B": [
+      "minecraft:bone"
+    ],
+    "F": [
+      "minecraft:feather"
+    ],
+    "S": [
+      "minecraft:string"
+    ],
+    "P": [
+      "minecraft:paper"
+    ],
+    "D": [
+      "minecraft:diorite"
+    ],
+    "C": [
+      "minecraft:sugar"
+    ]
+  },
+  "result": {
+    "id": "minecraft:quartz",
+    "count": 1
+  }
+}

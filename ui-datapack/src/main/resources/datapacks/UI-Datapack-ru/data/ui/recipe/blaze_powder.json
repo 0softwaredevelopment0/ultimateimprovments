@@ -1,0 +1,28 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "show_notification": true,
+  "group": "blaze_powder",
+  "category": "misc",
+  "pattern": [
+    "ACG",
+    "B  "
+  ],
+  "key": {
+    "A": [
+      "minecraft:amethyst_shard"
+    ],
+    "C": [
+      "minecraft:charcoal"
+    ],
+    "G": [
+      "minecraft:resin_brick"
+    ],
+    "B": [
+      "minecraft:breeze_rod"
+    ]
+  },
+  "result": {
+    "id": "minecraft:blaze_powder",
+    "count": 1
+  }
+}
