@@ -27,7 +27,7 @@ public class PlasmaEntityCollisions {
         le.damage(PlasmaConstants.ENTITY_DAMAGE, owner);
 
         if (le.isDead() || le.getHealth() <= 0) {
-            double newSpeed = Math.max(0, speed - PlasmaConstants.PENETRATION_COST);
+            double newSpeed = Math.max(0, speed - PlasmaConstants.ENTITY_PENETRATION_COST);
             Vector moveForward = direction.clone().multiply(0.7);
 
             PlasmaEffects.penetration(entity);

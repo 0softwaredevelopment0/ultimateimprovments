@@ -24,18 +24,20 @@ public class PlasmaBlockCollisions {
             return new CollisionResult(CollisionType.RICOCHET, speed, faceNormal, null);
         }
 
-        // Only flimsy blocks are pierced; anything solid is bounced off. A bolt never gets
-        // parked inside world geometry, so the cannon stays predictable.
-        double newSpeed = speed - PlasmaConstants.PENETRATION_COST;
-
-        if (hardness <= PlasmaConstants.MAX_PENETRABLE_HARDNESS
-                && newSpeed >= PlasmaConstants.MIN_SPEED) {
+        // Enough energy to break in: pierce the block for half its hardness, otherwise bounce.
+        if (speed >= hardness) {
             PlasmaEffects.blockBreak(block);
             block.breakNaturally();
-            return new CollisionResult(CollisionType.PENETRATION, newSpeed, null, null);
+
+            double newSpeed = speed - hardness * PlasmaConstants.PENETRATION_COST_FACTOR;
+            return new CollisionResult(
+                    CollisionType.PENETRATION,
+                    Math.max(PlasmaConstants.MIN_SPEED, newSpeed),
+                    null,
+                    null
+            );
         }
 
-        double ricochetSpeed = speed * PlasmaConstants.RICOCHET_SPEED_RETENTION;
-        return new CollisionResult(CollisionType.RICOCHET, ricochetSpeed, faceNormal, null);
+        return new CollisionResult(CollisionType.RICOCHET, speed, faceNormal, null);
     }
 }

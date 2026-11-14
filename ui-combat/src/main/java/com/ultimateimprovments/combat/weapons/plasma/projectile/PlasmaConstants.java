@@ -17,9 +17,6 @@ public class PlasmaConstants {
     /** Direction noise on block ricochet (lower — more stable). */
     public static final double BLOCK_RICOCHET_NOISE = 0.04;
 
-    /** Speed kept after bouncing off a block. 1.0 = no energy loss: a ricochet must never slow the bolt down. */
-    public static final double RICOCHET_SPEED_RETENTION = 1.0;
-
     /** Bonus speed multiplier when bouncing off an entity. */
     public static final double RICOCHET_SPEED_MULTIPLIER = 1.1;
 
@@ -29,11 +26,11 @@ public class PlasmaConstants {
     /** Minimum "away from the wall" velocity component after a ricochet. */
     public static final double MIN_OUTWARD_DOT = 0.15;
 
-    /** Blocks at or below this hardness (plants, snow layers, ...) are pierced, not bounced off. */
-    public static final float MAX_PENETRABLE_HARDNESS = 0.3f;
+    /** Energy spent to pierce one block: half of its hardness (the other half is absorbed by the block). */
+    public static final double PENETRATION_COST_FACTOR = 0.5;
 
-    /** Energy spent per pierced block. */
-    public static final double PENETRATION_COST = 0.25;
+    /** Energy spent to pierce a killed entity. */
+    public static final double ENTITY_PENETRATION_COST = 0.25;
 
     /** Ticks without drift after hitting a block. */
     public static final int POST_BLOCK_HIT_STABILITY_TICKS = 5;

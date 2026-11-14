@@ -3,6 +3,19 @@
 All notable changes to the UltimateImprovments plugin family are documented
 in this file.
 
+## [1.8.5-beta.43] - 2026-11-14
+
+### Changed
+- **Piercing a block now costs half of that block's hardness instead of a flat
+  0.25.** The bolt breaks any block it has enough speed for (`speed >=
+  hardness`) and pays `hardness * 0.5` (`PENETRATION_COST_FACTOR`); a bolt that
+  is too slow bounces off. Dirt, sand and gravel (hardness 0.4–0.6) therefore
+  give way for ~0.2–0.3 speed each, while stone (1.5) still needs an
+  entity-boosted bolt to break. Speed is floored at `MIN_SPEED` (0.35).
+- The old `MAX_PENETRABLE_HARDNESS` whitelist and `RICOCHET_SPEED_RETENTION`
+  (already 1.0) are gone; entity piercing has its own `ENTITY_PENETRATION_COST`
+  (0.25).
+
 ## [1.8.5-beta.42] - 2026-11-14
 
 ### Changed
