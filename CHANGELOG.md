@@ -3,6 +3,16 @@
 All notable changes to the UltimateImprovments plugin family are documented
 in this file.
 
+## [1.8.5-beta.42] - 2026-11-14
+
+### Changed
+- **A block ricochet no longer costs the Photon Cannon bolt any speed.**
+  `RICOCHET_SPEED_RETENTION` was 0.88, so the bolt slowed down with every
+  bounce (`1.2 → 0.49` over seven bounces, floored at `MIN_SPEED = 0.35`) and
+  a short step per tick made it look sluggish. It is now 1.0: only pierced
+  blocks (plants, hardness ≤ 0.3) spend energy, and the bolt's lifetime is
+  limited by `MAX_BOUNCES` instead. Entity ricochets still add the ×1.1 bonus.
+
 ## [1.8.5-beta.41] - 2026-11-14
 
 ### Changed

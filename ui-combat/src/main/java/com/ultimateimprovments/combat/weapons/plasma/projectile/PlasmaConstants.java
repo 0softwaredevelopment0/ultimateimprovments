@@ -17,8 +17,8 @@ public class PlasmaConstants {
     /** Direction noise on block ricochet (lower — more stable). */
     public static final double BLOCK_RICOCHET_NOISE = 0.04;
 
-    /** Speed kept after bouncing off a block (energy bleeds off each bounce). */
-    public static final double RICOCHET_SPEED_RETENTION = 0.88;
+    /** Speed kept after bouncing off a block. 1.0 = no energy loss: a ricochet must never slow the bolt down. */
+    public static final double RICOCHET_SPEED_RETENTION = 1.0;
 
     /** Bonus speed multiplier when bouncing off an entity. */
     public static final double RICOCHET_SPEED_MULTIPLIER = 1.1;
