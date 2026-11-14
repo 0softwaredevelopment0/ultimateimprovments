@@ -75,6 +75,16 @@ public final class ExpSplitSubcommand {
             public boolean useBottle(Player player, ItemStack item, EquipmentSlot hand) {
                 return ExpSplitSubcommand.useBottle(player, item, hand);
             }
+
+            @Override
+            public int storedXp(ItemStack item) {
+                return ExpSplitSubcommand.storedXp(item);
+            }
+
+            @Override
+            public ItemStack createBottle(int xp) {
+                return ExpSplitSubcommand.createBottle(xp);
+            }
         };
     }
 

@@ -3,6 +3,20 @@
 All notable changes to the UltimateImprovments plugin family are documented
 in this file.
 
+## [1.8.5-beta.37] - 2026-11-14
+
+### Changed
+- **Experience bottles now share one model: the exact stored amount.** The
+  `/ui expsplit` bottle is the canonical charged bottle — it keeps the precise
+  number of experience points the player had (PDC `ui:exp_split_amount`).
+  The vanilla random 3–11 XP roll is irrelevant to it.
+- **Anvil merge for bank bottles:** two exp-split bottles in the anvil now
+  produce one bottle holding the exact sum (`CoreHooks.ExpBottleUser` gained
+  `storedXp` / `createBottle`). Mixed pairs (bank + multiplier) stay rejected,
+  so banked experience can never be silently converted into a multiplier tier.
+- The legacy multiplier bottles (`EXP_BOTTLE_MULTIPLIER`, xN) keep working
+  exactly as before — no migration, no lost items.
+
 ## [1.8.5-beta.36] - 2026-11-14
 
 ### Added

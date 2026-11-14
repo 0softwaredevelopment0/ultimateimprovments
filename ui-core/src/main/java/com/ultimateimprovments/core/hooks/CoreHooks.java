@@ -261,6 +261,12 @@ public final class CoreHooks {
 
         /** Returns true when the bottle was consumed and its charge applied. */
         boolean useBottle(Player player, ItemStack item, EquipmentSlot hand);
+
+        /** Exact experience stored in the bottle, 0 when it is not an exp-split bottle. */
+        int storedXp(ItemStack item);
+
+        /** Builds a bottle holding exactly {@code xp} experience. */
+        ItemStack createBottle(int xp);
     }
 
     private static volatile ExpBottleUser expBottleUser;
@@ -280,6 +286,18 @@ public final class CoreHooks {
     public static boolean useExpBottle(Player player, ItemStack item, EquipmentSlot hand) {
         ExpBottleUser u = expBottleUser;
         return u != null && item != null && u.useBottle(player, item, hand);
+    }
+
+    /** Exact experience stored in the bottle, 0 when the feature is absent. */
+    public static int expBottleAmount(ItemStack item) {
+        ExpBottleUser u = expBottleUser;
+        return u != null && item != null && u.isBottle(item) ? u.storedXp(item) : 0;
+    }
+
+    /** Builds an exp-split bottle, or null when the feature is absent. */
+    public static ItemStack createExpBottle(int xp) {
+        ExpBottleUser u = expBottleUser;
+        return u != null ? u.createBottle(xp) : null;
     }
 
     // ── Territory protection (installed by UI-Protection) ────────────────

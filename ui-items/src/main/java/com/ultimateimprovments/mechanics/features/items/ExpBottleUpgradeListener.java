@@ -103,8 +103,20 @@ public class ExpBottleUpgradeListener implements Listener {
 
         if (slot0 == null || slot0.getType() != Material.EXPERIENCE_BOTTLE) return;
         if (slot1 == null || slot1.getType() != Material.EXPERIENCE_BOTTLE) return;
-        // Exp-split bottles (/ui expsplit) store a whole experience bar: never feed
-        // them into the multiplier recipe, the result would silently eat that XP.
+
+        // Exact-amount bottles (the /ui expsplit bank) merge into one bottle
+        // holding the sum: the bank is the canonical charged-bottle model.
+        if (CoreHooks.isExpBottle(slot0) && CoreHooks.isExpBottle(slot1)) {
+            long total = (long) CoreHooks.expBottleAmount(slot0) + (long) CoreHooks.expBottleAmount(slot1);
+            if (total <= 0) return;
+            ItemStack merged = CoreHooks.createExpBottle((int) Math.min(Integer.MAX_VALUE, total));
+            if (merged == null) return;
+            event.setResult(merged);
+            setAnvilCost(event.getView(), Math.min(anvilCostAmount, 39), 0);
+            return;
+        }
+        // A mixed pair is not a recipe: never let the multiplier path eat the
+        // exact experience stored in a bank bottle.
         if (CoreHooks.isExpBottle(slot0) || CoreHooks.isExpBottle(slot1)) return;
 
         int level0 = getMultiplier(slot0);
@@ -163,15 +175,23 @@ public class ExpBottleUpgradeListener implements Listener {
 
         ItemStack result = inv.getItem(2);
         if (result == null || result.getType() != Material.EXPERIENCE_BOTTLE) return;
-        int resultLevel = getMultiplier(result);
-        if (resultLevel <= 1) return; // not our recipe
+
+        // Exact-amount bottle (sum of two bank bottles) or a multiplier tier
+        boolean exact = CoreHooks.isExpBottle(result);
+        int resultLevel = exact ? 0 : getMultiplier(result);
+        if (!exact && resultLevel <= 1) return; // not our recipe
 
         ItemStack slot0 = inv.getItem(0);
         ItemStack slot1 = inv.getItem(1);
         if (slot0 == null || slot1 == null) return;
-        // Sanity: inputs must be bottles of the exact previous level
-        if (getMultiplier(slot0) != resultLevel - 1) return;
-        if (getMultiplier(slot1) != resultLevel - 1) return;
+        if (exact) {
+            // Both inputs must be bank bottles, one is consumed from each slot
+            if (!CoreHooks.isExpBottle(slot0) || !CoreHooks.isExpBottle(slot1)) return;
+        } else {
+            // Sanity: inputs must be bottles of the exact previous level
+            if (getMultiplier(slot0) != resultLevel - 1) return;
+            if (getMultiplier(slot1) != resultLevel - 1) return;
+        }
 
         ClickType click = event.getClick();
         boolean shift = click == ClickType.SHIFT_LEFT || click == ClickType.SHIFT_RIGHT;
@@ -219,10 +239,18 @@ public class ExpBottleUpgradeListener implements Listener {
 
         event.setCancelled(true);
 
-        // Consume exactly 2 × resultAmount bottles: from slot 0 first, then slot 1
+        // Consume the inputs: a bank merge eats one bottle from each slot, the
+        // multiplier recipe eats 2 × resultAmount bottles (slot 0 first).
         int need = result.getAmount() * 2;
-        int take0 = Math.min(slot0.getAmount(), need);
-        int take1 = need - take0;
+        int take0;
+        int take1;
+        if (exact) {
+            take0 = 1;
+            take1 = 1;
+        } else {
+            take0 = Math.min(slot0.getAmount(), need);
+            take1 = need - take0;
+        }
 
         slot0.setAmount(slot0.getAmount() - take0);
         slot1.setAmount(slot1.getAmount() - take1);
