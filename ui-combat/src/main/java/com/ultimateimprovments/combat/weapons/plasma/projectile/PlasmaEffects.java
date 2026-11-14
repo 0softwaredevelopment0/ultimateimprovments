@@ -6,29 +6,54 @@ import org.bukkit.entity.Entity;
 
 public class PlasmaEffects {
 
+    /** Trail colour at full charge (the familiar electric blue) and just before it fizzles. */
+    private static final Color TRAIL_FULL = Color.fromRGB(0, 220, 255);
+    private static final Color TRAIL_SPENT = Color.fromRGB(6, 4, 16);
+
     private PlasmaEffects() {}
 
     public static void plasmaTrail(Location loc) {
+        plasmaTrail(loc, 1.0);
+    }
+
+    /**
+     * @param remainingRatio 1.0 = fresh bolt, 0.0 = about to fizzle. The dust darkens
+     *                       (blue → near-black) and shrinks as the bolt runs out of life.
+     */
+    public static void plasmaTrail(Location loc, double remainingRatio) {
+
+        double t = Math.max(0.0, Math.min(1.0, remainingRatio));
+
+        Color color = Color.fromRGB(
+                lerp(TRAIL_SPENT.getRed(), TRAIL_FULL.getRed(), t),
+                lerp(TRAIL_SPENT.getGreen(), TRAIL_FULL.getGreen(), t),
+                lerp(TRAIL_SPENT.getBlue(), TRAIL_FULL.getBlue(), t)
+        );
+
+        float size = 1.0f + (float) t;
 
         loc.getWorld().spawnParticle(
                 Particle.DUST,
                 loc,
                 1,
-                new Particle.DustOptions(
-                        Color.AQUA,
-                        2.0f
-                )
+                new Particle.DustOptions(color, size)
         );
+
+        int sparks = Math.max(1, (int) Math.round(1 + t));
 
         loc.getWorld().spawnParticle(
                 Particle.ELECTRIC_SPARK,
                 loc,
-                2,
+                sparks,
                 0.1,
                 0.1,
                 0.1,
                 0
         );
+    }
+
+    private static int lerp(int from, int to, double t) {
+        return (int) Math.round(from + (to - from) * t);
     }
 
     public static void ricochet(Location loc) {

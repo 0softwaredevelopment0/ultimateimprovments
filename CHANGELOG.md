@@ -3,6 +3,16 @@
 All notable changes to the UltimateImprovments plugin family are documented
 in this file.
 
+## [1.8.5-beta.41] - 2026-11-14
+
+### Changed
+- **The Photon Cannon trail fades from blue to black as the bolt runs out of
+  charge.** Dust colour and size interpolate from the familiar electric blue
+  (`0, 220, 255`, size 2.0) to near-black (`6, 4, 16`, size 1.0), and the
+  spark count drops to one. Charge is `min(remaining lifetime, remaining
+  bounces)`, so the colour also dims after every ricochet instead of staying
+  bright until the bolt suddenly fizzles.
+
 ## [1.8.5-beta.40] - 2026-11-14
 
 ### Fixed

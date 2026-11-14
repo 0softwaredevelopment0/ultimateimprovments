@@ -95,8 +95,15 @@ public class PlasmaProjectile implements BaseProjectile {
         advance();
 
         if (!dead) {
-            PlasmaEffects.plasmaTrail(loc);
+            PlasmaEffects.plasmaTrail(loc, remainingCharge());
         }
+    }
+
+    /** 1.0 = fresh bolt, 0.0 = about to fizzle (by lifetime or by used-up bounces). */
+    private double remainingCharge() {
+        double lifeLeft = 1.0 - (double) life / PlasmaConstants.MAX_LIFE;
+        double bouncesLeft = 1.0 - (double) bounces / PlasmaConstants.MAX_BOUNCES;
+        return Math.min(lifeLeft, bouncesLeft);
     }
 
     /**
