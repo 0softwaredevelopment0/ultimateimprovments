@@ -47,6 +47,7 @@ public class PortableWorkbenchListener implements Listener {
     private static final Map<UUID, Long> LAST_USE = new ConcurrentHashMap<>();
 
     private static long cooldownMs = USE_COOLDOWN_FALLBACK_MS;
+    private static int lowWarningPercent = 10;
     private static Sound openSound = Sound.BLOCK_WOOD_PLACE;
     private static Sound breakSound = Sound.ENTITY_ITEM_BREAK;
     private static Particle breakParticle = Particle.ITEM;
@@ -58,6 +59,8 @@ public class PortableWorkbenchListener implements Listener {
         if (main == null) return;
 
         cooldownMs = Math.max(0L, main.getConfig().getLong("portable_workbench.cooldown_ms", USE_COOLDOWN_FALLBACK_MS));
+        lowWarningPercent = Math.max(0, Math.min(100,
+                main.getConfig().getInt("portable_workbench.low_warning_percent", 10)));
         openSound = soundOrNull(main.getConfig().getString("portable_workbench.open_sound", "BLOCK_WOOD_PLACE"),
                 Sound.BLOCK_WOOD_PLACE);
         breakSound = soundOrNull(main.getConfig().getString("portable_workbench.break_sound", "ENTITY_ITEM_BREAK"),
@@ -120,7 +123,8 @@ public class PortableWorkbenchListener implements Listener {
         if (remaining <= 0) {
             breakItem(player, hand, item);
         } else {
-            sendActionBar(player, "opened", remaining, max);
+            int percent = PortableWorkbenchCraftListener.percentOf(remaining);
+            sendActionBar(player, percent <= lowWarningPercent ? "low" : "opened", remaining, max, percent);
         }
     }
 
@@ -158,12 +162,13 @@ public class PortableWorkbenchListener implements Listener {
         return stored == null ? 0 : Math.max(0, stored);
     }
 
-    private static void sendActionBar(Player player, String key, int remaining, int max) {
+    private static void sendActionBar(Player player, String key, int remaining, int max, int percent) {
         String raw = MessagesManager.getString("portable_workbench." + key, "");
         if (raw.isBlank()) return;
         player.sendActionBar(MessageUtil.parse(raw
                 .replace("%charges%", String.valueOf(remaining))
-                .replace("%max%", String.valueOf(max))));
+                .replace("%max%", String.valueOf(max))
+                .replace("%percent%", String.valueOf(percent))));
     }
 
     private static void sendRaw(Player player, String raw) {

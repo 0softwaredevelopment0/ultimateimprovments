@@ -735,6 +735,8 @@ final class ConfigRules {
                     "Заряды портативного верстака (одно открытие = один заряд)"),
             integer("portable_workbench.cooldown_ms", 0, 60000,
                     "Кулдаун между открытиями верстака одного игрока, мс"),
+            integer("portable_workbench.low_warning_percent", 0, 100,
+                    "Порог остатка зарядов в %, ниже которого показывается low-сообщение"),
             string("portable_workbench.open_sound", false, 64),
             string("portable_workbench.break_sound", false, 64),
             string("portable_workbench.break_particle", false, 64),

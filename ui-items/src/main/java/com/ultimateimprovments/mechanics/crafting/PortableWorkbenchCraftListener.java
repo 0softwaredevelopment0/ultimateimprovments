@@ -45,7 +45,7 @@ public class PortableWorkbenchCraftListener implements Listener {
     private static final String DEFAULT_NAME = "<white>Portable Workbench *</white>";
     private static final List<String> DEFAULT_LORE = List.of(
             "<gray>Opens a crafting table anywhere.</gray>",
-            "<gray>Charges: <green>%charges%</green><gray>/%max%</gray>",
+            "<gray>Charges: <green>%charges%</green><gray>/%max%</gray> <dark_gray>(%percent%%%)</dark_gray>",
             "<gray>Breaks after the last charge.</gray>");
 
     private static NamespacedKey RECIPE_KEY;
@@ -71,7 +71,9 @@ public class PortableWorkbenchCraftListener implements Listener {
 
         nameFormat = MessagesManager.getString("portable_workbench.name", DEFAULT_NAME);
 
-        List<String> rawLore = loreFormats();
+        // Same routing as every other addon message: current language, then the
+        // other language, then the built-in default (English).
+        List<String> rawLore = MessagesManager.getStringList("portable_workbench.lore", DEFAULT_LORE);
         loreFormats = (rawLore == null || rawLore.isEmpty()) ? DEFAULT_LORE : rawLore;
     }
 
@@ -98,6 +100,7 @@ public class PortableWorkbenchCraftListener implements Listener {
     /** Applies name, lore, PDC tag and the charge counter to an existing meta. */
     public static void applyMeta(ItemMeta meta, int charges) {
         int clamped = Math.max(0, Math.min(maxCharges, charges));
+        int percent = percentOf(clamped);
 
         meta.displayName(MessageUtil.parse("<i:false>" + nameFormat));
 
@@ -105,7 +108,8 @@ public class PortableWorkbenchCraftListener implements Listener {
         for (String line : loreFormats) {
             lore.add(MessageUtil.parse("<i:false>" + line
                     .replace("%charges%", String.valueOf(clamped))
-                    .replace("%max%", String.valueOf(maxCharges))));
+                    .replace("%max%", String.valueOf(maxCharges))
+                    .replace("%percent%", String.valueOf(percent))));
         }
         meta.lore(lore);
 
@@ -114,14 +118,11 @@ public class PortableWorkbenchCraftListener implements Listener {
         meta.setMaxStackSize(1);
     }
 
-    private static List<String> loreFormats() {
-        Main main = Main.getInstance();
-        if (main == null) return DEFAULT_LORE;
-
-        String base = "en".equals(MessagesManager.currentLanguage())
-                ? "messages_en.portable_workbench"
-                : "messages.portable_workbench";
-        return main.getConfig().getStringList(base + ".lore");
+    /** Remaining charge percentage (0..100), durability-style. */
+    public static int percentOf(int charges) {
+        if (maxCharges <= 0) return 0;
+        int clamped = Math.max(0, Math.min(maxCharges, charges));
+        return (int) Math.round(clamped * 100.0 / maxCharges);
     }
 
     private static void registerRecipe() {

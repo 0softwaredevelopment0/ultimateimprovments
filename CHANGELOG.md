@@ -3,6 +3,17 @@
 All notable changes to the UltimateImprovments plugin family are documented
 in this file.
 
+## [1.8.5-beta.39] - 2026-11-14
+
+### Changed
+- **Portable Workbench texts are fully localised** through the standard message
+  routing (`MessagesManager`, RU + EN sections, English by default when
+  `messages.lang` is not `ru`). Name and lore use the same fallback chain as
+  every other addon message instead of reading the config directly.
+- **Durability-style charge readout:** lore and actionbar now include
+  `%percent%` (`Charges: 63/64 (98%)`). Below `portable_workbench.low_warning_percent`
+  (default 10%) the actionbar switches from `opened` to the `low` warning.
+
 ## [1.8.5-beta.38] - 2026-11-14
 
 ### Changed

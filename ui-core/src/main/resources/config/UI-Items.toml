@@ -115,6 +115,10 @@ max_charges = 64
 # Cooldown between two openings of one player, milliseconds.
 # Default: 250
 cooldown_ms = 250
+# Below this remaining-charge percentage the "low" actionbar message is used
+# instead of "opened" (0 = always "opened").
+# Default: 10
+low_warning_percent = 10
 # Sound on opening (Bukkit Sound name, empty = silent).
 # Default: BLOCK_WOOD_PLACE
 open_sound = "BLOCK_WOOD_PLACE"
@@ -193,8 +197,9 @@ shift_air_only = "<red>Сбросить привязку можно только
 # ── Portable Workbench (Russian) ──
 [messages.portable_workbench]
 name = "<white>Portable Workbench *</white>"
-lore = ["<gray>Открывает верстак в любом месте.</gray>", "<gray>Заряды: <green>%charges%</green><gray>/%max%</gray>", "<gray>Ломается после последнего заряда.</gray>"]
-opened = "<gray>Верстак открыт. Заряды:</gray> <green>%charges%</green><gray>/%max%</gray>"
+lore = ["<gray>Открывает верстак в любом месте.</gray>", "<gray>Заряды: <green>%charges%</green><gray>/%max%</gray> <dark_gray>(%percent%%%)</dark_gray>", "<gray>Ломается после последнего заряда.</gray>"]
+opened = "<gray>Верстак открыт. Заряды:</gray> <green>%charges%</green><gray>/%max%</gray> <dark_gray>(%percent%%%)</dark_gray>"
+low = "<yellow>⚠</yellow> <gray>Зарядов осталось:</gray> <yellow>%charges%</yellow><gray>/%max%</gray> <dark_gray>(%percent%%%)</dark_gray>"
 broken = "<red>✧</red> <gray>Портативный верстак износился и сломался.</gray>"
 
 # ── Remote Detonator (English) ──
@@ -218,6 +223,7 @@ shift_air_only = "<red>You have to click Shift+RMB to AIR to use detonator!</red
 # ── Portable Workbench (English) ──
 [messages_en.portable_workbench]
 name = "<white>Portable Workbench *</white>"
-lore = ["<gray>Opens a crafting table anywhere.</gray>", "<gray>Charges: <green>%charges%</green><gray>/%max%</gray>", "<gray>Breaks after the last charge.</gray>"]
-opened = "<gray>Workbench opened. Charges:</gray> <green>%charges%</green><gray>/%max%</gray>"
+lore = ["<gray>Opens a crafting table anywhere.</gray>", "<gray>Charges: <green>%charges%</green><gray>/%max%</gray> <dark_gray>(%percent%%%)</dark_gray>", "<gray>Breaks after the last charge.</gray>"]
+opened = "<gray>Workbench opened. Charges:</gray> <green>%charges%</green><gray>/%max%</gray> <dark_gray>(%percent%%%)</dark_gray>"
+low = "<yellow>⚠</yellow> <gray>Charges left:</gray> <yellow>%charges%</yellow><gray>/%max%</gray> <dark_gray>(%percent%%%)</dark_gray>"
 broken = "<red>✧</red> <gray>The portable workbench wore out and broke.</gray>"
