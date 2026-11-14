@@ -3,6 +3,16 @@
 All notable changes to the UltimateImprovments plugin family are documented
 in this file.
 
+## [1.8.5-beta.36] - 2026-11-14
+
+### Added
+- **Portable Workbench** — right-click opens a real crafting-table GUI and
+  spends one of 128 charges, shown in the lore. Block placement is suppressed
+  (the click is cancelled), an empty table refuses to open and cannot be
+  recharged. The recipe (iron + leather + crafting table) is a custom recipe,
+  so it can only be crafted in a Crafter block, like the other custom items.
+  Name and lore are explicitly non-italic.
+
 ## [1.8.5-beta.35] - 2026-11-14
 
 ### Changed

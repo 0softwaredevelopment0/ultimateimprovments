@@ -58,6 +58,7 @@ public final class ItemsModules {
                 ConcreteBucketCraftListener.init();
                 ChunkLoaderCraftListener.init();
                 HeavyCoreCraftListener.init();
+                PortableWorkbenchCraftListener.init();
                 RecipeRegistry.init();
 
                 var pm = main.getServer().getPluginManager();
@@ -81,6 +82,7 @@ public final class ItemsModules {
                 pm.registerEvents(new ConcreteBucketCraftListener(), main);
                 pm.registerEvents(new ChunkLoaderCraftListener(), main);
                 pm.registerEvents(new ChunkLoaderItemListener(), main);
+                pm.registerEvents(new PortableWorkbenchListener(), main);
                 pm.registerEvents(new ExpSplitBottleListener(), main);
                 ConcreteBucketManager.init(main);
 

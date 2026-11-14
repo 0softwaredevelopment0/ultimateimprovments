@@ -69,6 +69,10 @@ public class Keys {
     // XP Bottle Upgrade (Experience bottle x2/x3/...)
     public static NamespacedKey EXP_BOTTLE_MULTIPLIER;
 
+    // Portable Workbench (item tag + remaining opens)
+    public static NamespacedKey PORTABLE_WORKBENCH;
+    public static NamespacedKey PORTABLE_WORKBENCH_CHARGES;
+
     // Block Collapse
     public static NamespacedKey BLOCK_COLLAPSE_TAG;
 
@@ -126,6 +130,9 @@ public class Keys {
         FIREBALL = new NamespacedKey(plugin, "fireball");
 
         EXP_BOTTLE_MULTIPLIER = new NamespacedKey(plugin, "exp_bottle_multiplier");
+
+        PORTABLE_WORKBENCH = new NamespacedKey(plugin, "portable_workbench");
+        PORTABLE_WORKBENCH_CHARGES = new NamespacedKey(plugin, "portable_workbench_charges");
 
         BLOCK_COLLAPSE_TAG = new NamespacedKey(plugin, "block_collapse_tag");
 

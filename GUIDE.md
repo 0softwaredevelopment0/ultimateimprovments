@@ -254,6 +254,7 @@ Crafter). Recipes come from the bundled datapack.
 | **Structure Indicator** | **SHIFT+RMB** on a structure reads its stress, degradation and integrity (sculk-sensor base). This is the structure tool; the Multimeter no longer reads structures. |
 | **Particle Engine / Injector / Ring / Speed Sensor** | Particle accelerator components. |
 | **Chunk Loader** | Keep chunks loaded (consumes an XP bottle). |
+| **Portable Workbench** | Right-click opens a real crafting table GUI and spends one of **128** charges (shown in the lore). Block placement is suppressed; a table with no charges left refuses to open and cannot be recharged. Crafted in the Crafter only (iron + leather + a crafting table). |
 | **Ender Chest (Портативное хранилище)** | Portable storage. |
 
 The bundled **datapack** also modifies/overrides vanilla recipes (netherite,
