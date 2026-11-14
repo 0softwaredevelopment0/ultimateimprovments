@@ -25,7 +25,7 @@ public final class PlasmaRaycast {
             return null;
         }
 
-        if (!PlasmaPhysics.isAir(start)) {
+        if (!PlasmaPhysics.isPassable(start)) {
             return null;
         }
 
@@ -50,7 +50,7 @@ public final class PlasmaRaycast {
         while (iterator.hasNext()) {
             Block block = iterator.next();
 
-            if (block.getType().isAir()) {
+            if (PlasmaPhysics.isPassable(block)) {
                 previousAir = block;
                 continue;
             }

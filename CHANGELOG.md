@@ -3,6 +3,41 @@
 All notable changes to the UltimateImprovments plugin family are documented
 in this file.
 
+## [1.8.5-beta.44] - 2026-11-14
+
+### Fixed
+- **The bolt bounces off water and lava as if it were a wall.** Anything that
+  was not `isAir()` counted as solid, and water has hardness 100. New
+  `PlasmaPhysics.isPassable` treats air and fluids alike for the raycast,
+  escape and ricochet placement.
+- **Block piercing ignored claims.** `block.breakNaturally()` never asked
+  `CoreHooks.isBlockProtected`, so a shot dug through a protected region.
+  Protected blocks now ricochet the bolt.
+- **Grazing hits could park or kill the bolt.** When `Block.getFace` returned
+  `null` (diagonal neighbour) the face was guessed from the dominant axis; the
+  ricochet position could land inside the next block, so `escapeToAir` shoved
+  the bolt up to two blocks forward or it silently fizzled. Positions are now
+  validated and recovered along the face normal, and every substep escapes an
+  embedded start before casting.
+- **Entity ricochets bypassed the bounce budget and accelerated without
+  limit.** They now share `MAX_BOUNCES` (colour darkens accordingly), and the
+  ×1.1 boost is capped at `MAX_SPEED_CAP = 2.4` so a mob pile cannot drive the
+  bolt into `MAX_SAFE_SPEED` and the explosion path.
+- **Fast bolts flew through entities.** The hit box was only checked at the end
+  of the whole step; the segment is now sampled every 0.75 blocks (up to
+  `MAX_ENTITY_PROBES`). The bolt also continues from the real contact point
+  instead of snapping back to the tick start.
+- **The shooter could hit themselves with their own ricochet** after the 2 s
+  immunity. The owner is now never damaged by their bolt.
+
+### Changed
+- **Photon Cannon damage 6 → 8 HP (4 hearts) and cooldown 80 → 60 ticks.**
+  At 6 HP / 4 s the DPS was 1.5 (bow ~20), so the cannon read as weak next to
+  the Shoker (6 HP + Slowness 255 on the same cooldown).
+- **The trail is drawn along the travelled segment** (one dust every 0.6
+  blocks, max 12) instead of a single particle per tick, which left ~1.2-block
+  gaps at 24 blocks/s and was invisible once the colour went nearly black.
+
 ## [1.8.5-beta.43] - 2026-11-14
 
 ### Changed

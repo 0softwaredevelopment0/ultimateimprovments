@@ -3,6 +3,7 @@ package com.ultimateimprovments.combat.weapons.plasma.projectile;
 import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Entity;
+import org.bukkit.util.Vector;
 
 public class PlasmaEffects {
 
@@ -12,15 +13,15 @@ public class PlasmaEffects {
 
     private PlasmaEffects() {}
 
-    public static void plasmaTrail(Location loc) {
-        plasmaTrail(loc, 1.0);
-    }
-
     /**
-     * @param remainingRatio 1.0 = fresh bolt, 0.0 = about to fizzle. The dust darkens
-     *                       (blue → near-black) and shrinks as the bolt runs out of life.
+     * Draws the trail along the segment travelled this tick (a single particle per tick
+     * left visible gaps at 24 blocks/s).
+     *
+     * @param from           start of the tick
+     * @param to             current bolt position
+     * @param remainingRatio 1.0 = fresh bolt, 0.0 = about to fizzle
      */
-    public static void plasmaTrail(Location loc, double remainingRatio) {
+    public static void plasmaTrail(Location from, Location to, double remainingRatio) {
 
         double t = Math.max(0.0, Math.min(1.0, remainingRatio));
 
@@ -32,18 +33,26 @@ public class PlasmaEffects {
 
         float size = 1.0f + (float) t;
 
-        loc.getWorld().spawnParticle(
-                Particle.DUST,
-                loc,
-                1,
-                new Particle.DustOptions(color, size)
-        );
+        Location start = from != null && from.getWorld() != null
+                && from.getWorld().equals(to.getWorld())
+                ? from
+                : to;
+
+        Vector delta = to.toVector().subtract(start.toVector());
+        int points = Math.max(1, Math.min(12, (int) Math.ceil(delta.length() / 0.6)));
+
+        Particle.DustOptions dust = new Particle.DustOptions(color, size);
+
+        for (int i = 1; i <= points; i++) {
+            Location point = start.clone().add(delta.clone().multiply((double) i / points));
+            point.getWorld().spawnParticle(Particle.DUST, point, 1, dust);
+        }
 
         int sparks = Math.max(1, (int) Math.round(1 + t));
 
-        loc.getWorld().spawnParticle(
+        to.getWorld().spawnParticle(
                 Particle.ELECTRIC_SPARK,
-                loc,
+                to,
                 sparks,
                 0.1,
                 0.1,

@@ -10,7 +10,10 @@ public class PlasmaConstants {
     public static final double MAX_SAFE_SPEED = 50.0;
 
     /** Damage dealt to a living entity, HP (2 HP = 1 heart). */
-    public static final double ENTITY_DAMAGE = 6.0;
+    public static final double ENTITY_DAMAGE = 8.0;
+
+    /** Hard ceiling for entity ricochet boost (otherwise a mob pile accelerates the bolt into MAX_SAFE_SPEED). */
+    public static final double MAX_SPEED_CAP = 2.4;
 
     public static final double INSTABILITY = 0.01;
 
@@ -43,9 +46,10 @@ public class PlasmaConstants {
 
     public static final double MAX_ESCAPE_DISTANCE = 2.0;
 
-    public static final int OWNER_IMMUNITY_TICKS = 40;
-
     public static final int MAX_LIFE = 1200;
+
+    /** Hard cap on entity probes per tick segment (fast bolts sample the whole path). */
+    public static final int MAX_ENTITY_PROBES = 16;
 
     public static double clampSpeed(double speed) {
         return Math.max(MIN_SPEED, speed);

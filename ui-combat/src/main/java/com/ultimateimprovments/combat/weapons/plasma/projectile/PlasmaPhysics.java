@@ -1,6 +1,7 @@
 package com.ultimateimprovments.combat.weapons.plasma.projectile;
 
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Entity;
@@ -12,8 +13,17 @@ public class PlasmaPhysics {
 
     private PlasmaPhysics() {}
 
-    public static boolean isAir(Location location) {
-        return location.getBlock().getType().isAir();
+    public static boolean isPassable(Block block) {
+        if (block == null) {
+            return false;
+        }
+        var type = block.getType();
+        // Air, and also fluids: a plasma bolt must fly through water/lava, not bounce off them.
+        return type.isAir() || type == Material.WATER || type == Material.LAVA;
+    }
+
+    public static boolean isPassable(Location location) {
+        return isPassable(location.getBlock());
     }
 
     public static void applyInstability(Vector dir, Random random) {
@@ -144,7 +154,7 @@ public class PlasmaPhysics {
 
     /** Fallback safeguard: only if the coordinates are inside a solid block. */
     public static Location escapeToAir(Location location, Vector preferredOutward) {
-        if (isAir(location)) {
+        if (isPassable(location)) {
             return location;
         }
 
@@ -169,7 +179,7 @@ public class PlasmaPhysics {
                  step += PlasmaConstants.ESCAPE_STEP) {
 
                 Location candidate = current.clone().add(outward.clone().multiply(step));
-                if (isAir(candidate)) {
+                if (isPassable(candidate)) {
                     return candidate;
                 }
             }

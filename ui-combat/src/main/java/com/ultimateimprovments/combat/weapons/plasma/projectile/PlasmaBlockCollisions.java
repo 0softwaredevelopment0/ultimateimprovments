@@ -1,7 +1,9 @@
 package com.ultimateimprovments.combat.weapons.plasma.projectile;
 
+import com.ultimateimprovments.core.hooks.CoreHooks;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
+import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
 
 public class PlasmaBlockCollisions {
@@ -12,7 +14,8 @@ public class PlasmaBlockCollisions {
             Block block,
             Vector direction,
             double speed,
-            BlockFace hitFace
+            BlockFace hitFace,
+            Player owner
     ) {
         float hardness = block.getType().getHardness();
         Vector faceNormal = hitFace != null
@@ -21,6 +24,11 @@ public class PlasmaBlockCollisions {
 
         if (hardness < 0f) {
             PlasmaEffects.unbreakable(block);
+            return new CollisionResult(CollisionType.RICOCHET, speed, faceNormal, null);
+        }
+
+        // Never dig through a claim: bounce off the protected block instead.
+        if (CoreHooks.isBlockProtected(block.getLocation(), owner)) {
             return new CollisionResult(CollisionType.RICOCHET, speed, faceNormal, null);
         }
 

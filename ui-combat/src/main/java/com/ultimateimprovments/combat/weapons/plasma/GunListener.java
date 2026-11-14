@@ -20,7 +20,7 @@ public class GunListener implements Listener {
     // =========================
     // COOLDOWN
     // =========================
-    private static final long COOLDOWN_TICKS = 80;
+    private static final long COOLDOWN_TICKS = 60;
     private final HashMap<UUID, Long> cooldown = new HashMap<>();
 
     @EventHandler

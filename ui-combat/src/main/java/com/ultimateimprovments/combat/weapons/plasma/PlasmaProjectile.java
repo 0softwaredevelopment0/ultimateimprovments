@@ -75,11 +75,11 @@ public class PlasmaProjectile implements BaseProjectile {
         }
 
         // Fallback safeguard: get out of a block along the flight direction, not back where we came from.
-        if (!PlasmaPhysics.isAir(loc)) {
+        if (!PlasmaPhysics.isPassable(loc)) {
             loc = PlasmaPhysics.escapeToAir(loc, dir);
         }
 
-        if (!PlasmaPhysics.isAir(loc)) {
+        if (!PlasmaPhysics.isPassable(loc)) {
             // Still buried (e.g. inside a huge solid mass) — fizzle instead of flying through walls.
             dead = true;
             return;
@@ -92,10 +92,11 @@ public class PlasmaProjectile implements BaseProjectile {
             PlasmaPhysics.applyInstability(dir, random);
         }
 
+        Location before = loc.clone();
         advance();
 
         if (!dead) {
-            PlasmaEffects.plasmaTrail(loc, remainingCharge());
+            PlasmaEffects.plasmaTrail(before, loc, remainingCharge());
         }
     }
 
@@ -116,15 +117,31 @@ public class PlasmaProjectile implements BaseProjectile {
              step < PlasmaConstants.MAX_SUBSTEPS && remaining > 1.0E-4 && !dead;
              step++) {
 
+            // A corner hit may leave us on the wrong side of the reported face — recover instead of tunnelling.
+            if (!PlasmaPhysics.isPassable(loc)) {
+                loc = PlasmaPhysics.escapeToAir(loc, dir);
+                if (!PlasmaPhysics.isPassable(loc)) {
+                    dead = true;
+                    return;
+                }
+            }
+
             Location start = loc.clone();
             PlasmaRaycast.BlockHit hit = PlasmaRaycast.cast(start, dir, remaining);
+            Location stepEnd = start.clone().add(dir.clone().multiply(remaining));
 
             if (hit != null) {
+                // Entities in front of the block still take the hit.
+                if (probeEntities(start, Math.min(remaining, hit.distance()))) {
+                    return;
+                }
+
                 CollisionResult result = PlasmaBlockCollisions.handleBlockCollision(
                         hit.block(),
                         dir,
                         speed,
-                        hit.face()
+                        hit.face(),
+                        owner
                 );
 
                 applyBlockCollision(result, hit);
@@ -139,15 +156,39 @@ public class PlasmaProjectile implements BaseProjectile {
                 continue;
             }
 
-            Location stepEnd = start.clone().add(dir.clone().multiply(remaining));
-
-            if (handleEntityCollision(stepEnd)) {
+            if (probeEntities(start, remaining)) {
                 return;
             }
 
             loc = stepEnd;
             return;
         }
+    }
+
+    /**
+     * Samples the whole travelled segment instead of only its end point, so a fast
+     * bolt cannot fly between ticks straight through an entity.
+     *
+     * @return true when an entity was hit and the travel for this tick is over.
+     */
+    private boolean probeEntities(Location start, double distance) {
+        if (distance <= 0) {
+            return false;
+        }
+
+        int probes = Math.max(1, (int) Math.ceil(distance / 0.75));
+        probes = Math.min(probes, PlasmaConstants.MAX_ENTITY_PROBES);
+
+        Vector step = dir.clone().multiply(distance / probes);
+
+        for (int i = 1; i <= probes; i++) {
+            Location probe = start.clone().add(step.clone().multiply(i));
+            if (handleEntityCollision(probe)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private void applyBlockCollision(CollisionResult result, PlasmaRaycast.BlockHit blockHit) {
@@ -158,6 +199,16 @@ public class PlasmaProjectile implements BaseProjectile {
                 speed = PlasmaConstants.clampSpeed(result.newSpeed);
                 dir = PlasmaPhysics.ricochetOffBlock(dir, faceNormal, random);
                 loc = PlasmaPhysics.positionAfterBlockRicochet(blockHit.block(), blockHit.face());
+
+                if (!PlasmaPhysics.isPassable(loc)) {
+                    loc = PlasmaPhysics.escapeToAir(loc, faceNormal);
+                }
+
+                if (!PlasmaPhysics.isPassable(loc)) {
+                    dead = true;
+                    return;
+                }
+
                 stabilityTicks = PlasmaConstants.POST_BLOCK_HIT_STABILITY_TICKS;
                 bounces++;
 
@@ -171,6 +222,11 @@ public class PlasmaProjectile implements BaseProjectile {
             case PENETRATION -> {
                 speed = PlasmaConstants.clampSpeed(result.newSpeed);
                 loc = PlasmaPhysics.positionAfterBlockPenetration(blockHit.block(), dir);
+
+                if (!PlasmaPhysics.isPassable(loc)) {
+                    loc = PlasmaPhysics.escapeToAir(loc, dir);
+                }
+
                 stabilityTicks = 2;
             }
             case STOP -> dead = true;
@@ -178,22 +234,21 @@ public class PlasmaProjectile implements BaseProjectile {
     }
 
     /** @return true when the bolt hit something and its travel for this tick is over. */
-    private boolean handleEntityCollision(Location stepEnd) {
-        for (Entity entity : stepEnd.getWorld().getNearbyEntities(stepEnd, 0.6, 0.6, 0.6)) {
-            if (PlasmaCollision.isOwnerProtected(entity, owner, life)) {
+    private boolean handleEntityCollision(Location probe) {
+        for (Entity entity : probe.getWorld().getNearbyEntities(probe, 0.6, 0.6, 0.6)) {
+            if (PlasmaCollision.isOwnerProtected(entity, owner)) {
                 continue;
             }
+
+            // Continue from the actual contact point, not from the tick start.
+            loc = probe.clone();
 
             CollisionResult result = PlasmaEntityCollisions.handleEntityCollision(
                     entity, owner, loc, dir, speed
             );
             applyEntityCollision(result);
 
-            if (dead || result.type != CollisionType.PENETRATION) {
-                return true;
-            }
-
-            // Pierced the entity: the rest of the travel happens next tick from the new point.
+            // One entity hit ends the tick: the bolt bounces away or pierces onward from here.
             return true;
         }
 
@@ -205,11 +260,20 @@ public class PlasmaProjectile implements BaseProjectile {
 
         switch (result.type) {
             case RICOCHET -> {
+                speed = Math.min(speed, PlasmaConstants.MAX_SPEED_CAP);
+
                 Vector hitNormal = result.hitNormal != null
                         ? result.hitNormal
                         : PlasmaPhysics.incomingFaceNormal(dir);
                 dir = PlasmaPhysics.ricochetOffEntity(dir, hitNormal, random);
                 loc.add(dir.clone().multiply(0.25));
+                bounces++;
+
+                if (bounces >= PlasmaConstants.MAX_BOUNCES) {
+                    dead = true;
+                    return;
+                }
+
                 PlasmaEffects.ricochet(loc);
             }
             case PENETRATION -> {
