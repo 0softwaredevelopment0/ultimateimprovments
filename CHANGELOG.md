@@ -3,6 +3,27 @@
 All notable changes to the UltimateImprovments plugin family are documented
 in this file.
 
+## [1.8.5-beta.40] - 2026-11-14
+
+### Fixed
+- **The Photon Cannon bolt no longer freezes on a block.** A ricochet used to
+  teleport it into the neighbouring air-cell centre (up to 4 blocks back) and
+  `ensureMovingAwayFromWall` could re-reflect a direction that was already
+  leaving the wall, sending the bolt straight back into it — the bolt then
+  alternated against the same face and looked stuck. The ricochet now places
+  the bolt just outside the hit face (2 cm), the outward component is topped
+  up instead of flipped, and one tick may resolve up to 8 blocks along the
+  flight path, so a fast bolt never hovers in front of a wall.
+- **Photon Cannon damage is no longer tied to the leftover speed.** It deals a
+  flat 6 HP (3 hearts) per hit instead of `0.5` HP at spawn and less after
+  every bounce; the bolt also pierces plants (hardness ≤ 0.3) instead of
+  stopping on them.
+
+### Changed
+- Photon Cannon starts at 1.2 blocks/tick (was 0.5), keeps 88% of its speed per
+  ricochet and fizzles after 8 bounces instead of orbiting inside a cave for a
+  full minute. All tuning values live in `PlasmaConstants`.
+
 ## [1.8.5-beta.39] - 2026-11-14
 
 ### Changed

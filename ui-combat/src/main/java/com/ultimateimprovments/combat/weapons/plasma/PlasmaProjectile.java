@@ -5,7 +5,6 @@ import com.ultimateimprovments.combat.weapons.core.BaseProjectile;
 import com.ultimateimprovments.combat.weapons.core.ProjectileManager;
 import com.ultimateimprovments.combat.weapons.core.ProjectileType;
 import org.bukkit.Location;
-import org.bukkit.block.Block;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
@@ -15,6 +14,9 @@ import java.util.Random;
 /**
  * Orchestrator: ticking, state, applying collisions.
  * Block physics — ricochet / piercing; escape is only a fallback safeguard.
+ * <p>
+ * One tick may resolve several blocks along the flight path ({@link PlasmaConstants#MAX_SUBSTEPS}),
+ * so a fast bolt neither skips through a wall nor hovers in front of it.
  */
 public class PlasmaProjectile implements BaseProjectile {
 
@@ -26,12 +28,10 @@ public class PlasmaProjectile implements BaseProjectile {
     private int life = 0;
     private boolean dead = false;
 
-    private Location lastAirLoc;
-    private Block lastStuckBlock;
-    private int stuckBlockTicks = 0;
     private int stabilityTicks = 0;
+    private int bounces = 0;
 
-    private double speed = 0.5;
+    private double speed = PlasmaConstants.START_SPEED;
 
     private final Random random = new Random();
 
@@ -39,7 +39,6 @@ public class PlasmaProjectile implements BaseProjectile {
         this.owner = owner;
         this.loc = owner.getEyeLocation().clone();
         this.dir = owner.getLocation().getDirection().normalize();
-        this.lastAirLoc = loc.clone();
     }
 
     public static void spawn(Player player) {
@@ -75,17 +74,14 @@ public class PlasmaProjectile implements BaseProjectile {
             return;
         }
 
-        // Fallback safeguard: only if really inside a block
+        // Fallback safeguard: get out of a block along the flight direction, not back where we came from.
         if (!PlasmaPhysics.isAir(loc)) {
-            loc = PlasmaPhysics.escapeToAir(loc, PlasmaPhysics.incomingFaceNormal(dir));
+            loc = PlasmaPhysics.escapeToAir(loc, dir);
         }
 
-        rememberAirPosition();
-
-        if (tryUnstuckFromWall()) {
-            if (!dead) {
-                PlasmaEffects.plasmaTrail(loc);
-            }
+        if (!PlasmaPhysics.isAir(loc)) {
+            // Still buried (e.g. inside a huge solid mass) — fizzle instead of flying through walls.
+            dead = true;
             return;
         }
 
@@ -96,29 +92,86 @@ public class PlasmaProjectile implements BaseProjectile {
             PlasmaPhysics.applyInstability(dir, random);
         }
 
-        PlasmaRaycast.BlockHit blockHit = PlasmaRaycast.cast(loc, dir, speed);
-        Location stepEnd = loc.clone().add(dir.clone().multiply(speed));
+        advance();
 
-        if (blockHit != null) {
-            trackStuckBlock(blockHit.block());
+        if (!dead) {
+            PlasmaEffects.plasmaTrail(loc);
+        }
+    }
 
-            CollisionResult result = PlasmaBlockCollisions.handleBlockCollision(
-                    blockHit.block(),
-                    dir,
-                    speed,
-                    blockHit.face()
-            );
-            applyBlockCollision(result, blockHit);
-            safetyEscapeIfInsideBlock(blockHit.face().getDirection());
+    /**
+     * Moves the bolt along its path for this tick, resolving every block/entity it meets.
+     */
+    private void advance() {
+        double remaining = speed;
 
-            if (!dead) {
-                PlasmaEffects.plasmaTrail(loc);
+        for (int step = 0;
+             step < PlasmaConstants.MAX_SUBSTEPS && remaining > 1.0E-4 && !dead;
+             step++) {
+
+            Location start = loc.clone();
+            PlasmaRaycast.BlockHit hit = PlasmaRaycast.cast(start, dir, remaining);
+
+            if (hit != null) {
+                CollisionResult result = PlasmaBlockCollisions.handleBlockCollision(
+                        hit.block(),
+                        dir,
+                        speed,
+                        hit.face()
+                );
+
+                applyBlockCollision(result, hit);
+
+                if (dead || result.type != CollisionType.PENETRATION) {
+                    return;
+                }
+
+                // Continue through the pierced block within the same tick.
+                double travelled = start.distance(loc);
+                remaining = Math.min(speed, Math.max(0, remaining - travelled));
+                continue;
             }
+
+            Location stepEnd = start.clone().add(dir.clone().multiply(remaining));
+
+            if (handleEntityCollision(stepEnd)) {
+                return;
+            }
+
+            loc = stepEnd;
             return;
         }
+    }
 
-        clearStuckBlock();
+    private void applyBlockCollision(CollisionResult result, PlasmaRaycast.BlockHit blockHit) {
+        Vector faceNormal = blockHit.faceNormal();
 
+        switch (result.type) {
+            case RICOCHET -> {
+                speed = PlasmaConstants.clampSpeed(result.newSpeed);
+                dir = PlasmaPhysics.ricochetOffBlock(dir, faceNormal, random);
+                loc = PlasmaPhysics.positionAfterBlockRicochet(blockHit.block(), blockHit.face());
+                stabilityTicks = PlasmaConstants.POST_BLOCK_HIT_STABILITY_TICKS;
+                bounces++;
+
+                if (bounces >= PlasmaConstants.MAX_BOUNCES) {
+                    dead = true;
+                    return;
+                }
+
+                PlasmaEffects.ricochet(loc);
+            }
+            case PENETRATION -> {
+                speed = PlasmaConstants.clampSpeed(result.newSpeed);
+                loc = PlasmaPhysics.positionAfterBlockPenetration(blockHit.block(), dir);
+                stabilityTicks = 2;
+            }
+            case STOP -> dead = true;
+        }
+    }
+
+    /** @return true when the bolt hit something and its travel for this tick is over. */
+    private boolean handleEntityCollision(Location stepEnd) {
         for (Entity entity : stepEnd.getWorld().getNearbyEntities(stepEnd, 0.6, 0.6, 0.6)) {
             if (PlasmaCollision.isOwnerProtected(entity, owner, life)) {
                 continue;
@@ -129,37 +182,15 @@ public class PlasmaProjectile implements BaseProjectile {
             );
             applyEntityCollision(result);
 
-            if (dead) {
-                return;
+            if (dead || result.type != CollisionType.PENETRATION) {
+                return true;
             }
+
+            // Pierced the entity: the rest of the travel happens next tick from the new point.
+            return true;
         }
 
-        loc = stepEnd;
-        rememberAirPosition();
-        PlasmaEffects.plasmaTrail(loc);
-    }
-
-    private void applyBlockCollision(CollisionResult result, PlasmaRaycast.BlockHit blockHit) {
-        speed = PlasmaConstants.clampSpeed(result.newSpeed);
-        Vector faceNormal = blockHit.faceNormal();
-
-        switch (result.type) {
-            case RICOCHET -> {
-                dir = PlasmaPhysics.ricochetOffBlock(dir, faceNormal, random);
-                loc = PlasmaPhysics.positionAfterBlockRicochet(blockHit.block(), blockHit.face());
-                stabilityTicks = PlasmaConstants.POST_BLOCK_HIT_STABILITY_TICKS;
-                PlasmaEffects.ricochet(loc);
-            }
-            case PENETRATION -> {
-                loc = PlasmaPhysics.positionAfterBlockPenetration(
-                        blockHit.block(),
-                        blockHit.face(),
-                        dir
-                );
-                stabilityTicks = 2;
-            }
-            case STOP -> dead = true;
-        }
+        return false;
     }
 
     private void applyEntityCollision(CollisionResult result) {
@@ -171,7 +202,7 @@ public class PlasmaProjectile implements BaseProjectile {
                         ? result.hitNormal
                         : PlasmaPhysics.incomingFaceNormal(dir);
                 dir = PlasmaPhysics.ricochetOffEntity(dir, hitNormal, random);
-                loc.add(dir.clone().multiply(0.2));
+                loc.add(dir.clone().multiply(0.25));
                 PlasmaEffects.ricochet(loc);
             }
             case PENETRATION -> {
@@ -181,47 +212,5 @@ public class PlasmaProjectile implements BaseProjectile {
             }
             case STOP -> dead = true;
         }
-    }
-
-    private void safetyEscapeIfInsideBlock(Vector faceNormal) {
-        if (!PlasmaPhysics.isAir(loc)) {
-            loc = PlasmaPhysics.escapeToAir(loc, faceNormal);
-        }
-    }
-
-    private void rememberAirPosition() {
-        if (PlasmaPhysics.isAir(loc)) {
-            lastAirLoc = loc.clone();
-        }
-    }
-
-    private void trackStuckBlock(Block block) {
-        if (block.equals(lastStuckBlock)) {
-            stuckBlockTicks++;
-        } else {
-            lastStuckBlock = block;
-            stuckBlockTicks = 1;
-        }
-    }
-
-    private void clearStuckBlock() {
-        lastStuckBlock = null;
-        stuckBlockTicks = 0;
-    }
-
-    /** Fallback step-back if the main physics did not escape the loop within one block. */
-    private boolean tryUnstuckFromWall() {
-        if (stuckBlockTicks < PlasmaConstants.STUCK_BLOCK_TICKS || lastAirLoc == null) {
-            return false;
-        }
-
-        Vector faceNormal = PlasmaPhysics.incomingFaceNormal(dir);
-        loc = lastAirLoc.clone();
-        dir = PlasmaPhysics.ricochetOffBlock(dir, faceNormal, random);
-        stabilityTicks = PlasmaConstants.POST_BLOCK_HIT_STABILITY_TICKS;
-        clearStuckBlock();
-
-        PlasmaEffects.ricochet(loc);
-        return true;
     }
 }

@@ -24,21 +24,18 @@ public class PlasmaEntityCollisions {
             return new CollisionResult(CollisionType.RICOCHET, speed, hitNormal, null);
         }
 
-        double hp = le.getHealth();
+        le.damage(PlasmaConstants.ENTITY_DAMAGE, owner);
 
-        if (speed < hp) {
-            le.damage(speed, owner);
-            double newSpeed = speed * PlasmaConstants.RICOCHET_SPEED_MULTIPLIER;
-            return new CollisionResult(CollisionType.RICOCHET, newSpeed, hitNormal, null);
+        if (le.isDead() || le.getHealth() <= 0) {
+            double newSpeed = Math.max(0, speed - PlasmaConstants.PENETRATION_COST);
+            Vector moveForward = direction.clone().multiply(0.7);
+
+            PlasmaEffects.penetration(entity);
+
+            return new CollisionResult(CollisionType.PENETRATION, newSpeed, null, moveForward);
         }
 
-        le.damage(999999, owner);
-
-        double newSpeed = Math.max(0, speed - hp);
-        Vector moveForward = direction.clone().multiply(0.7);
-
-        PlasmaEffects.penetration(entity);
-
-        return new CollisionResult(CollisionType.PENETRATION, newSpeed, null, moveForward);
+        double newSpeed = speed * PlasmaConstants.RICOCHET_SPEED_MULTIPLIER;
+        return new CollisionResult(CollisionType.RICOCHET, newSpeed, hitNormal, null);
     }
 }

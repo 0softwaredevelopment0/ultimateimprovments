@@ -91,6 +91,8 @@ public class PlasmaPhysics {
 
     /**
      * The normal points from the face toward the projectile; after reflection the velocity must move away from the wall.
+     * The out-of-wall component is topped up instead of re-reflected: flipping a direction that already points
+     * outward (but less than {@link PlasmaConstants#MIN_OUTWARD_DOT}) would send the bolt straight back into the wall.
      */
     public static Vector ensureMovingAwayFromWall(Vector direction, Vector faceNormal) {
         Vector n = faceNormal.clone().normalize();
@@ -101,41 +103,43 @@ public class PlasmaPhysics {
         }
         dir.normalize();
 
-        if (dir.dot(n) < PlasmaConstants.MIN_OUTWARD_DOT) {
-            return reflect(dir, n);
+        double outward = dir.dot(n);
+        if (outward < PlasmaConstants.MIN_OUTWARD_DOT) {
+            dir.add(n.clone().multiply(PlasmaConstants.MIN_OUTWARD_DOT - outward));
+            if (dir.lengthSquared() < 1.0E-8) {
+                return n;
+            }
+            dir.normalize();
         }
 
         return dir;
     }
 
-    /** Center of the air block the projectile flew into the face from. */
+    /** Just outside the hit face (the adjacent air cell), not the air-cell centre blocks away. */
     public static Location positionAfterBlockRicochet(Block block, BlockFace hitFace) {
-        return centerOfAirCellOnFace(block, hitFace);
-    }
-
-    /** Exit on the opposite side of the pierced block. */
-    public static Location positionAfterBlockPenetration(Block block, BlockFace hitFace, Vector direction) {
-        BlockFace exitFace = hitFace.getOppositeFace();
-        Location out = block.getLocation()
+        return block.getLocation()
                 .add(0.5, 0.5, 0.5)
-                .add(exitFace.getDirection().clone().multiply(0.55));
-
-        if (isAir(out)) {
-            return out;
-        }
-
-        return out.add(direction.clone().multiply(0.55));
+                .add(hitFace.getDirection().clone().multiply(0.52));
     }
 
-    public static Location centerOfAirCellOnFace(Block block, BlockFace hitFace) {
-        for (int distance = 1; distance <= PlasmaConstants.MAX_ESCAPE_BLOCKS; distance++) {
-            Block cell = block.getRelative(hitFace, distance);
-            Location center = cell.getLocation().add(0.5, 0.5, 0.5);
-            if (isAir(center)) {
-                return center;
+    /** First position outside the pierced block along the travel direction (works for diagonal hits too). */
+    public static Location positionAfterBlockPenetration(Block block, Vector direction) {
+        Location center = block.getLocation().add(0.5, 0.5, 0.5);
+        Vector dir = direction.clone();
+
+        if (dir.lengthSquared() < 1.0E-8) {
+            return center;
+        }
+        dir.normalize();
+
+        for (double step = 0.05; step <= 2.0; step += 0.05) {
+            Location candidate = center.clone().add(dir.clone().multiply(step));
+            if (!candidate.getBlock().equals(block)) {
+                return candidate.add(dir.clone().multiply(0.05));
             }
         }
-        return block.getRelative(hitFace).getLocation().add(0.5, 0.5, 0.5);
+
+        return center.add(dir.multiply(0.6));
     }
 
     /** Fallback safeguard: only if the coordinates are inside a solid block. */
