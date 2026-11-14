@@ -729,6 +729,17 @@ final class ConfigRules {
             string("remote_detonator.ignite_sound", false, 64),
             string("remote_detonator.bind_sound", false, 64),
 
+            // ── UI-Items · portable workbench ──
+            bool("portable_workbench.enabled"),
+            integer("portable_workbench.max_charges", 1, 1000000,
+                    "Заряды портативного верстака (одно открытие = один заряд)"),
+            integer("portable_workbench.cooldown_ms", 0, 60000,
+                    "Кулдаун между открытиями верстака одного игрока, мс"),
+            string("portable_workbench.open_sound", false, 64),
+            string("portable_workbench.break_sound", false, 64),
+            string("portable_workbench.break_particle", false, 64),
+            integer("portable_workbench.break_particle_count", 0, 1000),
+
             notBlank("plugin_version", 32),
             string("prefix", false, 512)
     );

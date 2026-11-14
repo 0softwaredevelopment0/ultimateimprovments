@@ -103,6 +103,32 @@ ignite_sound = "ITEM_FLINTANDSTEEL_USE"
 # Default: BLOCK_NOTE_BLOCK_PLING
 bind_sound = "BLOCK_NOTE_BLOCK_PLING"
 
+# Portable Workbench — a crafting table in the pocket.
+# One opening spends one charge; the last charge breaks the item.
+[portable_workbench]
+# Master switch (false = the item exists but reacts to nothing).
+# Default: true
+enabled = true
+# Charges (one opening per charge). The item breaks when the last one is spent.
+# Default: 64
+max_charges = 64
+# Cooldown between two openings of one player, milliseconds.
+# Default: 250
+cooldown_ms = 250
+# Sound on opening (Bukkit Sound name, empty = silent).
+# Default: BLOCK_WOOD_PLACE
+open_sound = "BLOCK_WOOD_PLACE"
+# Sound when the item breaks (Bukkit Sound name, empty = silent).
+# Default: ENTITY_ITEM_BREAK
+break_sound = "ENTITY_ITEM_BREAK"
+# Particle on break (Bukkit Particle name, empty = none).
+# Data-carrying particles (ITEM, BLOCK_ITEM) get the broken item as data.
+# Default: ITEM
+break_particle = "ITEM"
+# Particles per break.
+# Default: 16
+break_particle_count = 16
+
 # Fireball — vanilla Fire Charge shoots a fireball when used in the air.
 [fireball]
 # Master switch (true = right-click in air shoots, false = vanilla behaviour only).
@@ -164,6 +190,13 @@ broken = "<red>✧</red> <gray>Детонатор износился и слом
 air_only = "<red>Взрывать детонатором можно только по воздуху (ПКМ)!</red>"
 shift_air_only = "<red>Сбросить привязку можно только Shift+ПКМ по воздуху!</red>"
 
+# ── Portable Workbench (Russian) ──
+[messages.portable_workbench]
+name = "<white>Portable Workbench *</white>"
+lore = ["<gray>Открывает верстак в любом месте.</gray>", "<gray>Заряды: <green>%charges%</green><gray>/%max%</gray>", "<gray>Ломается после последнего заряда.</gray>"]
+opened = "<gray>Верстак открыт. Заряды:</gray> <green>%charges%</green><gray>/%max%</gray>"
+broken = "<red>✧</red> <gray>Портативный верстак износился и сломался.</gray>"
+
 # ── Remote Detonator (English) ──
 [messages_en.remote_detonator]
 name = "<white>Remote Detonator *</white>"
@@ -181,3 +214,10 @@ cooldown = "<yellow>✧</yellow> <gray>The detonator is not ready for another bl
 broken = "<red>✧</red> <gray>The detonator wore out and broke.</gray>"
 air_only = "<red>You have to click RMB to AIR to use detonator!</red>"
 shift_air_only = "<red>You have to click Shift+RMB to AIR to use detonator!</red>"
+
+# ── Portable Workbench (English) ──
+[messages_en.portable_workbench]
+name = "<white>Portable Workbench *</white>"
+lore = ["<gray>Opens a crafting table anywhere.</gray>", "<gray>Charges: <green>%charges%</green><gray>/%max%</gray>", "<gray>Breaks after the last charge.</gray>"]
+opened = "<gray>Workbench opened. Charges:</gray> <green>%charges%</green><gray>/%max%</gray>"
+broken = "<red>✧</red> <gray>The portable workbench wore out and broke.</gray>"

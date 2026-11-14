@@ -83,6 +83,7 @@ public final class ItemsModules {
                 pm.registerEvents(new ChunkLoaderCraftListener(), main);
                 pm.registerEvents(new ChunkLoaderItemListener(), main);
                 pm.registerEvents(new PortableWorkbenchListener(), main);
+                PortableWorkbenchListener.reloadConfig();
                 pm.registerEvents(new ExpSplitBottleListener(), main);
                 ConcreteBucketManager.init(main);
 
@@ -92,6 +93,8 @@ public final class ItemsModules {
             @Override
             protected void onReloadConfig(JavaPlugin plugin) {
                 ConcreteBucketManager.reloadConfig();
+                PortableWorkbenchCraftListener.reloadConfig();
+                PortableWorkbenchListener.reloadConfig();
             }
 
             @Override

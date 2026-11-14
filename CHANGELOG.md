@@ -3,6 +3,22 @@
 All notable changes to the UltimateImprovments plugin family are documented
 in this file.
 
+## [1.8.5-beta.38] - 2026-11-14
+
+### Changed
+- **Portable Workbench: 64 charges instead of 128, and it breaks when the last
+  one is spent.** A crafting-table item has no durability component, so the
+  break is simulated in code: the stack is removed, the break sound plays and a
+  particle burst (the item itself) appears; an actionbar message reports it.
+  Legacy items that already have 0 charges break on the first use and items
+  above the new maximum are clamped to it.
+- **Every Portable Workbench setting is configurable** in `UI-Items.toml`:
+  `[portable_workbench]` (`enabled`, `max_charges`, `cooldown_ms`,
+  `open_sound`, `break_sound`, `break_particle`, `break_particle_count`) and
+  `[messages.portable_workbench]` / `[messages_en.portable_workbench]`
+  (`name`, `lore` with `%charges%` / `%max%`, `opened`, `broken`). The item is
+  reloaded by `/ui reload`.
+
 ## [1.8.5-beta.37] - 2026-11-14
 
 ### Changed

@@ -464,9 +464,8 @@ public class AdminMenuGUI implements Listener {
         });
         CUSTOM_ITEMS.add(structureIndicator);
 
-        // 26. Portable Workbench — 128 opens, spent tables cannot be refilled
-        CUSTOM_ITEMS.add(com.ultimateimprovments.mechanics.crafting.PortableWorkbenchCraftListener
-                .createItem(com.ultimateimprovments.mechanics.crafting.PortableWorkbenchCraftListener.MAX_CHARGES));
+        // 26. Portable Workbench — charges come from [portable_workbench] (64 by default)
+        CUSTOM_ITEMS.add(com.ultimateimprovments.mechanics.crafting.PortableWorkbenchCraftListener.createItem());
 
         // 25. Lead Ingot — corrected material is above (NETHERITE_INGOT); the craft result
         // would not match an IRON_INGOT version, so this one must stay netherite-based.
