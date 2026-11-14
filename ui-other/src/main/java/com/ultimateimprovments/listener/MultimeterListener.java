@@ -3,7 +3,6 @@ package com.ultimateimprovments.listener;
 import com.ultimateimprovments.core.hooks.CoreHooks;
 import com.ultimateimprovments.energy.storage.battery.BatteryManager;
 import com.ultimateimprovments.energy.transfer.cable.*;
-import com.ultimateimprovments.mechanics.features.structure.StructureIntegrityManager;
 import com.ultimateimprovments.structure.StructureMarker;
 import com.ultimateimprovments.util.LocationUtil;
 import com.ultimateimprovments.util.Materials;
@@ -72,23 +71,6 @@ public class MultimeterListener implements Listener {
         player.playSound(block.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
 
         Material type = block.getType();
-
-        // =========================
-        // 🏗 STRUCTURE INTEGRITY (ENDER_CHEST)
-        // =========================
-        if (type == Material.ENDER_CHEST) {
-            Location loc = LocationUtil.normalize(block.getLocation());
-            StructureIntegrityManager sim = StructureIntegrityManager.getInstance();
-            if (sim != null) {
-                sim.showInfo(player, loc);
-            } else {
-                player.sendMessage(MessageUtil.parse("<red>❌ Structure Integrity system not available.</red>"));
-            }
-            // The branch owns the click even when the system is down — one
-            // answer per click and hand is enough.
-            MultimeterApi.markMeasured(player);
-            return;
-        }
 
         // =========================
         // ⚡ ACCELERATOR ENGINE (TUFF_BRICKS)

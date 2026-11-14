@@ -10,7 +10,6 @@ import com.ultimateimprovments.mechanics.features.world.AntimatterManager;
 import com.ultimateimprovments.mechanics.features.world.ChunkLoaderItemListener;
 import com.ultimateimprovments.mechanics.features.world.ConcreteBucketManager;
 import com.ultimateimprovments.mechanics.features.world.EntityLocatorManager;
-import com.ultimateimprovments.mechanics.features.world.WaypointManager;
 import com.ultimateimprovments.mechanics.particle.ParticleAcceleratorManager;
 import com.ultimateimprovments.mechanics.particle.ParticleMovementTask;
 import com.ultimateimprovments.module.ModuleManager;
@@ -110,19 +109,6 @@ public final class ItemsModules {
             @Override
             protected void onReloadConfig(JavaPlugin plugin) {
                 EntityLocatorManager.reloadConfig();
-            }
-        });
-
-        // Waypoint
-        mm.register(new SimpleModule("Waypoint", "mechanics/features/waypoint", false) {
-            @Override
-            protected void onInit(JavaPlugin plugin) throws Exception {
-                WaypointManager.init((Main) plugin);
-            }
-
-            @Override
-            protected void onReloadConfig(JavaPlugin plugin) {
-                WaypointManager.reloadConfig();
             }
         });
 

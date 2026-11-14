@@ -1,23 +1,27 @@
 package com.ultimateimprovments.mechanics.features.scanner;
 
-import com.ultimateimprovments.core.Keys;
-import com.ultimateimprovments.util.MessageUtil;
+import com.ultimateimprovments.core.Keys;
+import com.ultimateimprovments.core.Main;
+import com.ultimateimprovments.util.MessageUtil;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
-
-import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.block.Block;
-import org.bukkit.entity.Entity;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+
+import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.ChunkSnapshot;
+import org.bukkit.World;
 import org.bukkit.attribute.Attribute;
-import org.bukkit.entity.LivingEntity;
-import org.bukkit.entity.Player;
-import org.bukkit.event.EventHandler;
-import org.bukkit.event.Listener;
-import org.bukkit.event.block.Action;
-import org.bukkit.event.player.PlayerInteractEvent;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.attribute.AttributeInstance;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Player;
+import org.bukkit.entity.Enemy;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
+import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 
 import java.util.*;
@@ -51,11 +55,17 @@ public class ScannerItemListener implements Listener {
         boolean isMobFinder = pdc.has(Keys.MOB_FINDER, PersistentDataType.BYTE);
         boolean isRadar = pdc.has(Keys.RADAR, PersistentDataType.BYTE);
 
-        if (!isHealthMeter && !isOreFinder && !isMobFinder && !isRadar) return;
-
-        // Cancel ALWAYS, even on cooldown
-        e.setCancelled(true);
-
+        if (!isHealthMeter && !isOreFinder && !isMobFinder && !isRadar) return;
+
+        // Cancel ALWAYS, even on cooldown
+        e.setCancelled(true);
+
+        // Shift+RMB on the radar cycles its mode instead of scanning
+        if (isRadar && player.isSneaking()) {
+            cycleRadarMode(player, meta);
+            return;
+        }
+
         UUID uid = player.getUniqueId();
         long now = System.currentTimeMillis();
 
@@ -130,13 +140,70 @@ public class ScannerItemListener implements Listener {
             }
         }
 
-        player.sendMessage(Component.empty());
-        player.sendMessage(MessageUtil.parse("<gold>=== <white>Здоровье существа</white> ==="));
-        player.sendMessage(MessageUtil.parse("<gray>Существо: </gray><white>" + entityName + "</white>"));
-        player.sendMessage(MessageUtil.parse("<gray>Здоровье: </gray>" + colorTag + hpFormatted + "<reset><gray>/</gray>" + colorTag + maxHpFormatted + "<reset>"));
-        player.sendMessage(MessageUtil.parse(bar.toString()));
-        player.sendMessage(MessageUtil.parse("<gold>======================="));
-    }
+        player.sendMessage(Component.empty());
+        player.sendMessage(MessageUtil.parse("<gold>=== <white>Здоровье существа</white> ==="));
+        player.sendMessage(MessageUtil.parse("<gray>Существо: </gray><white>" + entityName + "</white>"));
+        player.sendMessage(MessageUtil.parse("<gray>Здоровье: </gray>" + colorTag + hpFormatted + "<reset><gray>/</gray>" + colorTag + maxHpFormatted + "<reset>"));
+        player.sendMessage(MessageUtil.parse(bar.toString()));
+
+        // Extended card: armor, attack damage, knockback resistance, effects, gear
+        double armor = attribute(living, Attribute.ARMOR);
+        if (armor > 0) {
+            player.sendMessage(MessageUtil.parse("<gray>Броня: </gray><white>" + String.format("%.1f", armor) + "</white>"));
+        }
+        double attack = attribute(living, Attribute.ATTACK_DAMAGE);
+        if (attack > 0) {
+            player.sendMessage(MessageUtil.parse("<gray>Урон: </gray><white>" + String.format("%.1f", attack) + "</white>"));
+        }
+        double knockback = attribute(living, Attribute.KNOCKBACK_RESISTANCE);
+        if (knockback > 0) {
+            player.sendMessage(MessageUtil.parse("<gray>Сопр. отбрасыванию: </gray><white>"
+                    + String.format("%.0f%%", knockback * 100) + "</white>"));
+        }
+        var effects = living.getActivePotionEffects();
+        if (!effects.isEmpty()) {
+            player.sendMessage(MessageUtil.parse("<gray>Эффекты:</gray>"));
+            for (var effect : effects) {
+                String name = effect.getType().getKey().getKey().replace('_', ' ');
+                int amplifier = effect.getAmplifier() + 1;
+                int seconds = effect.getDuration() / 20;
+                player.sendMessage(MessageUtil.parse("  <gray>▪</gray> <white>" + name + "</white>"
+                        + (amplifier > 1 ? " <yellow>" + amplifier + "</yellow>" : "")
+                        + " <dark_gray>(" + seconds + "с)</dark_gray>"));
+            }
+        }
+
+        var equipment = living.getEquipment();
+        if (equipment != null) {
+            String gear = gearLine(equipment);
+            if (!gear.isEmpty()) {
+                player.sendMessage(MessageUtil.parse("<gray>Экипировка: </gray><white>" + gear + "</white>"));
+            }
+        }
+
+        player.sendMessage(MessageUtil.parse("<gold>======================="));
+    }
+
+    private static double attribute(LivingEntity living, Attribute attribute) {
+        AttributeInstance instance = living.getAttribute(attribute);
+        return instance != null ? instance.getValue() : 0.0;
+    }
+
+    private static String gearLine(org.bukkit.inventory.EntityEquipment equipment) {
+        List<String> parts = new ArrayList<>();
+        addGear(parts, equipment.getItemInMainHand());
+        addGear(parts, equipment.getHelmet());
+        addGear(parts, equipment.getChestplate());
+        addGear(parts, equipment.getLeggings());
+        addGear(parts, equipment.getBoots());
+        return String.join(", ", parts);
+    }
+
+    private static void addGear(List<String> parts, ItemStack stack) {
+        if (stack == null || stack.getType() == Material.AIR) return;
+        String name = stack.getType().name().toLowerCase().replace('_', ' ');
+        parts.add(name);
+    }
 
     private static final int[][] GRADIENT_WAYPOINTS = {
         {0x8B, 0x00, 0x00},
@@ -196,52 +263,76 @@ public class ScannerItemListener implements Listener {
         Map.entry(Material.ANCIENT_DEBRIS, "Ancient Debris")
     ));
 
-    private void handleOreFinder(Player player) {
-        int chunkX = player.getChunk().getX();
-        int chunkZ = player.getChunk().getZ();
-        String worldName = player.getWorld().getName();
-
-        player.sendMessage(MessageUtil.parse(
-                "<gray>⛏ Сканирование чанка [</gray><yellow>" + chunkX + ", " + chunkZ + "</yellow><gray>] в </gray><yellow>" + worldName + "</yellow><gray>...</gray>"));
-
-        Map<Material, Integer> counts = new EnumMap<>(Material.class);
-        int totalOres = 0;
-        int minY = player.getWorld().getMinHeight();
-        int maxY = player.getWorld().getMaxHeight();
-
-        for (int x = 0; x < 16; x++) {
-            for (int z = 0; z < 16; z++) {
-                for (int y = minY; y < maxY; y++) {
-                    Block block = player.getWorld().getBlockAt(chunkX * 16 + x, y, chunkZ * 16 + z);
-                    Material type = block.getType();
-                    if (ORE_MATERIALS.containsKey(type)) {
-                        counts.merge(type, 1, Integer::sum);
-                        totalOres++;
-                    }
-                }
-            }
-        }
-
-        player.sendMessage(Component.empty());
-        player.sendMessage(MessageUtil.parse("<gold>=== <white>Руды в чанке</white> [<yellow>" + chunkX + ", " + chunkZ + "</yellow>] <gray>(" + worldName + ")</gray> ==="));
-        player.sendMessage(MessageUtil.parse("<gray>Всего руд: <white>" + totalOres + "</white></gray>"));
-
-        if (totalOres > 0) {
-            player.sendMessage(Component.empty());
-            ORE_MATERIALS.entrySet().stream()
-                .filter(e -> counts.getOrDefault(e.getKey(), 0) > 0)
-                .sorted(Comparator.<Map.Entry<Material, String>>comparingInt(
-                    e -> counts.get(e.getKey())).reversed()
-                    .thenComparing(Map.Entry.comparingByValue()))
-                .forEach(e -> {
-                    int count = counts.get(e.getKey());
-                    player.sendMessage(MessageUtil.parse(
-                            "  <gray>▪</gray> <white>" + e.getValue() + "</white><gray>: <yellow>" + count + "</yellow></gray>"));
-                });
-        }
-
-        player.sendMessage(MessageUtil.parse("<gold>================================"));
-    }
+    private void handleOreFinder(Player player) {
+        int chunkX = player.getChunk().getX();
+        int chunkZ = player.getChunk().getZ();
+        String worldName = player.getWorld().getName();
+
+        player.sendMessage(MessageUtil.parse(
+                "<gray>⛏ Сканирование чанка [</gray><yellow>" + chunkX + ", " + chunkZ + "</yellow><gray>] в </gray><yellow>" + worldName + "</yellow><gray>...</gray>"));
+
+        // The chunk column is ~98 000 blocks. Reading it block by block on the
+        // main thread froze the server for a tick spike on every click, so the
+        // snapshot is taken here (main thread only) and counted asynchronously.
+        ChunkSnapshot snapshot;
+        try {
+            snapshot = player.getChunk().getChunkSnapshot(true, false, false);
+        } catch (RuntimeException ex) {
+            player.sendMessage(MessageUtil.parse("<red>❌ Не удалось снять снимок чанка.</red>"));
+            return;
+        }
+        org.bukkit.World world = player.getWorld();
+        int minY = world.getMinHeight();
+        int maxY = world.getMaxHeight();
+        UUID uid = player.getUniqueId();
+
+        org.bukkit.Bukkit.getScheduler().runTaskAsynchronously(Main.getInstance(), () -> {
+            Map<Material, Integer> counts = new EnumMap<>(Material.class);
+            int totalOres = 0;
+
+            for (int x = 0; x < 16; x++) {
+                for (int z = 0; z < 16; z++) {
+                    for (int y = minY; y < maxY; y++) {
+                        Material type = snapshot.getBlockType(x, y, z);
+                        if (ORE_MATERIALS.containsKey(type)) {
+                            counts.merge(type, 1, Integer::sum);
+                            totalOres++;
+                        }
+                    }
+                }
+            }
+
+            int finalTotalOres = totalOres;
+            org.bukkit.Bukkit.getScheduler().runTask(Main.getInstance(), () -> {
+                Player online = org.bukkit.Bukkit.getPlayer(uid);
+                if (online == null) return;
+                sendOreReport(online, chunkX, chunkZ, worldName, counts, finalTotalOres);
+            });
+        });
+    }
+
+    private void sendOreReport(Player player, int chunkX, int chunkZ, String worldName,
+                               Map<Material, Integer> counts, int totalOres) {
+        player.sendMessage(Component.empty());
+        player.sendMessage(MessageUtil.parse("<gold>=== <white>Руды в чанке</white> [<yellow>" + chunkX + ", " + chunkZ + "</yellow>] <gray>(" + worldName + ")</gray> ==="));
+        player.sendMessage(MessageUtil.parse("<gray>Всего руд: <white>" + totalOres + "</white></gray>"));
+
+        if (totalOres > 0) {
+            player.sendMessage(Component.empty());
+            ORE_MATERIALS.entrySet().stream()
+                .filter(e -> counts.getOrDefault(e.getKey(), 0) > 0)
+                .sorted(Comparator.<Map.Entry<Material, String>>comparingInt(
+                    e -> counts.get(e.getKey())).reversed()
+                    .thenComparing(Map.Entry.comparingByValue()))
+                .forEach(e -> {
+                    int count = counts.get(e.getKey());
+                    player.sendMessage(MessageUtil.parse(
+                            "  <gray>▪</gray> <white>" + e.getValue() + "</white><gray>: <yellow>" + count + "</yellow></gray>"));
+                });
+        }
+
+        player.sendMessage(MessageUtil.parse("<gold>================================"));
+    }
 
     // ========================================================================
     // MOB FINDER
@@ -255,22 +346,44 @@ public class ScannerItemListener implements Listener {
                 "<gray>🔍 Сканирование чанка [</gray><yellow>" + chunkX + ", " + chunkZ + "</yellow><gray>] в </gray><yellow>" + worldName + "</yellow><gray>...</gray>"));
 
         Map<String, Integer> counts = new HashMap<>();
-        int totalEntities = 0;
-
-        for (Entity entity : player.getChunk().getEntities()) {
-            if (entity == player) continue;
-
-            String typeName = getEntityCategory(entity);
-            if (typeName == null) continue;
-
-            counts.merge(typeName, 1, Integer::sum);
-            totalEntities++;
-        }
-
-        player.sendMessage(Component.empty());
-        player.sendMessage(MessageUtil.parse("<gold>=== <white>Сущности в чанке</white> [<yellow>" + chunkX + ", " + chunkZ + "</yellow>] <gray>(" + worldName + ")</gray> ==="));
-        player.sendMessage(MessageUtil.parse("<gray>Всего сущностей: <white>" + totalEntities + "</white></gray>"));
-
+        int totalEntities = 0;
+        int hostile = 0;
+
+        for (Entity entity : player.getChunk().getEntities()) {
+            if (entity == player) continue;
+
+            String typeName = getEntityCategory(entity);
+            if (typeName == null) continue;
+
+            if (entity instanceof Enemy) hostile++;
+
+            counts.merge(typeName, 1, Integer::sum);
+            totalEntities++;
+        }
+
+        // Spawners of the current chunk — a cheap tile-entity walk, no block loop.
+        int spawners = 0;
+        for (var tile : player.getChunk().getTileEntities()) {
+            if (tile.getType() == Material.SPAWNER) spawners++;
+        }
+
+        int dangerThreshold = Main.getInstance().getConfig()
+                .getInt("features.mobfinder.danger_threshold", 8);
+
+        player.sendMessage(Component.empty());
+        player.sendMessage(MessageUtil.parse("<gold>=== <white>Сущности в чанке</white> [<yellow>" + chunkX + ", " + chunkZ + "</yellow>] <gray>(" + worldName + ")</gray> ==="));
+        player.sendMessage(MessageUtil.parse("<gray>Всего сущностей: <white>" + totalEntities + "</white></gray>"));
+
+        if (spawners > 0) {
+            player.sendMessage(MessageUtil.parse("<gray>Спавнеры в чанке: <light_purple>" + spawners + "</light_purple></gray>"));
+        }
+
+        if (hostile > 0) {
+            String color = hostile >= dangerThreshold ? "<red>" : "<yellow>";
+            String suffix = hostile >= dangerThreshold ? " <red>⚠ ОПАСНО</red>" : "";
+            player.sendMessage(MessageUtil.parse("<gray>Враждебные: " + color + hostile + "</" + color.substring(1) + suffix));
+        }
+
         if (totalEntities > 0) {
             player.sendMessage(Component.empty());
             counts.entrySet().stream()
@@ -314,32 +427,86 @@ public class ScannerItemListener implements Listener {
         };
     }
 
-    // ========================================================================
-    // PORTABLE RADAR
-    // ========================================================================
-    private void handleRadar(Player player) {
-        int radius = 64;
-        Location playerLoc = player.getLocation();
-
-        Entity nearest = null;
-        double nearestDist = radius + 1;
-
-        for (Entity e : player.getNearbyEntities(radius, radius, radius)) {
-            if (e instanceof Player) continue;
-            if (e instanceof org.bukkit.entity.Item) continue;
-            if (!e.getWorld().equals(player.getWorld())) continue;
-
-            double dist = playerLoc.distance(e.getLocation());
-            if (dist < nearestDist) {
-                nearestDist = dist;
-                nearest = e;
-            }
-        }
-
-        if (nearest == null) {
-            player.sendMessage(MessageUtil.parse("<red>❌ Нет сущностей в радиусе 64 блоков!</red>"));
-            return;
-        }
+    // ========================================================================
+    // PORTABLE RADAR
+    // ========================================================================
+    /** Radar filter modes; the index is the stored mode value. */
+    private static final String[] RADAR_MODES = {"all", "hostile", "players"};
+    private static final String[] RADAR_MODE_LABELS = {"все существа", "только враждебные", "только игроки"};
+
+    /** Shift+RMB: cycles all → hostile → players → all and stores it on the item. */
+    private void cycleRadarMode(Player player, ItemMeta meta) {
+        String current = meta.getPersistentDataContainer().get(Keys.RADAR_MODE, PersistentDataType.STRING);
+        int index = 0;
+        for (int i = 0; i < RADAR_MODES.length; i++) {
+            if (RADAR_MODES[i].equals(current)) { index = i; break; }
+        }
+        int next = (index + 1) % RADAR_MODES.length;
+
+        meta.getPersistentDataContainer().set(Keys.RADAR_MODE, PersistentDataType.STRING, RADAR_MODES[next]);
+        player.getInventory().getItemInMainHand().setItemMeta(meta);
+
+        player.sendActionBar(MessageUtil.parse(
+                "<gray>🎯 Режим радара: <yellow>" + RADAR_MODE_LABELS[next] + "</yellow> "
+                        + "<dark_gray>(Shift+ПКМ — сменить)</dark_gray>"));
+        player.playSound(player.getLocation(), org.bukkit.Sound.UI_BUTTON_CLICK, 0.6f, 1.4f);
+    }
+
+    private static String radarMode(ItemStack item) {
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) return RADAR_MODES[0];
+        String mode = meta.getPersistentDataContainer().get(Keys.RADAR_MODE, PersistentDataType.STRING);
+        return mode != null ? mode : RADAR_MODES[0];
+    }
+
+    private static int modeIndex(String mode) {
+        for (int i = 0; i < RADAR_MODES.length; i++) {
+            if (RADAR_MODES[i].equals(mode)) return i;
+        }
+        return 0;
+    }
+
+    /** True when the entity passes the current radar filter. */
+    private static boolean radarMatches(Entity entity, String mode) {
+        return switch (mode) {
+            case "hostile" -> entity instanceof Enemy;
+            case "players" -> entity instanceof Player;
+            default -> !(entity instanceof Player);
+        };
+    }
+
+    private void handleRadar(Player player) {
+        int radius = 64;
+        Location playerLoc = player.getLocation();
+        String mode = radarMode(player.getInventory().getItemInMainHand());
+
+        Entity nearest = null;
+        double nearestDist = radius + 1;
+
+        for (Entity e : player.getNearbyEntities(radius, radius, radius)) {
+            if (e instanceof org.bukkit.entity.Item) continue;
+            if (!e.getWorld().equals(player.getWorld())) continue;
+            if (!radarMatches(e, mode)) continue;
+
+            double dist = playerLoc.distance(e.getLocation());
+            if (dist < nearestDist) {
+                nearestDist = dist;
+                nearest = e;
+            }
+        }
+
+        if (nearest == null) {
+            player.sendMessage(MessageUtil.parse("<red>❌ Нет целей в радиусе 64 блоков ("
+                    + RADAR_MODE_LABELS[modeIndex(mode)] + ")!</red>"));
+            return;
+        }
+
+        // Marker: the found target glows for 5 seconds so it is visible through walls
+        final Entity marker = nearest;
+        marker.setGlowing(true);
+        org.bukkit.Bukkit.getScheduler().runTaskLater(Main.getInstance(), () -> {
+            if (marker.isValid()) marker.setGlowing(false);
+        }, 100L);
 
         // Entity info
         String entityName = nearest.getType().name().toLowerCase().replace('_', ' ');
@@ -409,7 +576,9 @@ public class ScannerItemListener implements Listener {
         player.sendMessage(MessageUtil.parse("<gray>Координаты: </gray><white>" + loc.getBlockX() + " " + loc.getBlockY() + " " + loc.getBlockZ() + "</white>"));
         player.sendMessage(MessageUtil.parse("<gray>Расстояние: </gray>" + distColor + distBlocks + "<reset> <gray>блоков</gray>"));
         player.sendMessage(MessageUtil.parse("<gray>Дистанция: </gray>" + distBar.toString()));
-        player.sendMessage(MessageUtil.parse("<gray>Направление: </gray><white>" + dirX + " " + dirZ + " " + dirY + "</white>"));
+        player.sendMessage(MessageUtil.parse("<gray>Направление: </gray><white>" + dirX + " " + dirZ + " " + dirY + "</white>"));
+        player.sendMessage(MessageUtil.parse("<gray>Режим: </gray><yellow>" + RADAR_MODE_LABELS[modeIndex(mode)]
+                + "</yellow> <dark_gray>(Shift+ПКМ — сменить)</dark_gray>"));
         player.sendMessage(MessageUtil.parse("<gold>==========================="));
 
         // Ping sound based on distance

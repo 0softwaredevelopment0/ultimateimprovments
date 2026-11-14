@@ -3,6 +3,39 @@
 All notable changes to the UltimateImprovments plugin family are documented
 in this file.
 
+## [1.8.5-beta.35] - 2026-11-14
+
+### Changed
+- **Structure Indicator** (formerly *Structure Integrity Indicator*) now uses a
+  calibrated sculk sensor instead of a spyglass and is renamed accordingly.
+  The item is the single structure-inspection tool: the branch that read
+  ender-chest integrity from the **Multimeter** was removed, so the Multimeter
+  reports cables, batteries, generators, reactors and accelerator blocks only.
+  The admin menu lists the new item.
+- **Entity Locator** no longer writes to the chat. It is now a passive locator:
+  a note whose pitch rises with proximity plus a short dust trail toward the
+  nearest entity. The tick only runs for players actually holding the item and
+  the default interval is 10 ticks.
+- **Ore Finder** scans the chunk snapshot asynchronously; the report is sent on
+  the main thread afterwards. The click used to read ~98 000 blocks in one tick.
+- **Metal Detector** sweeps its 33×33×33 volume with a 3 000-blocks-per-tick
+  budget and abandons the scan when the player walks away. The result is
+  announced with a beep series that gets faster and higher the closer the
+  nearest find is.
+- **Mob Finder** also reports creature spawners found in the chunk and warns
+  when the number of hostile mobs reaches `features.mobfinder.danger_threshold`
+  (default 8).
+- **Portable Radar** gained filters: Shift+RMB cycles all → hostile → players,
+  and the found target glows for 5 seconds.
+- **Health Meter** shows an extended card: armor, attack damage, knockback
+  resistance, active effects and equipment.
+
+### Removed
+- The `Waypoint` module: it was an empty scheduler stub that did nothing.
+  Its config section and rules were dropped.
+- Unused `Keys.AUTH_GUI` and `Keys.CHUNK_LOADER` declarations (the chunk loader
+  keeps its own hardcoded key).
+
 ## [1.8.5-beta.34] - 2026-11-12
 
 ### Changed

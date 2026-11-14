@@ -28,23 +28,32 @@ public class StructureIntegrityCraftListener implements Listener {
         registerRecipe();
     }
 
+    /**
+     * Builds the Structure Indicator item (shift+RMB on a structure).
+     * The base material is a calibrated sculk sensor: the spyglass base made the
+     * item feel like a scoped tool and clashed with the Mob Finder, which also
+     * uses SPYGLASS.
+     */
+    public static ItemStack createItem() {
+        ItemStack result = new ItemStack(Material.CALIBRATED_SCULK_SENSOR);
+        result.editMeta(meta -> {
+            meta.displayName(MessageUtil.parse("<i:false><white>Structure Indicator *</white>"));
+            meta.lore(List.of(
+                    MessageUtil.parse("<i:false><gray>Shift+RMB on a structure to inspect</gray>"),
+                    MessageUtil.parse("<i:false><gray>its stress, degradation, and integrity.</gray>"),
+                    MessageUtil.parse(""),
+                    MessageUtil.parse("<i:false><dark_gray>Structure tool: the Multimeter</dark_gray>"),
+                    MessageUtil.parse("<i:false><dark_gray>reads cables and energy only.</dark_gray>")
+            ));
+            meta.getPersistentDataContainer().set(KEY, PersistentDataType.BYTE, (byte) 1);
+        });
+        return result;
+    }
+
     private static void registerRecipe() {
         Main plugin = Main.getInstance();
 
-        ItemStack result = new ItemStack(Material.SPYGLASS);
-        result.editMeta(meta -> {
-
-        meta.displayName(MessageUtil.parse("<i:false><white>Structure Integrity Indicator*</white>"));
-
-        meta.lore(List.of(
-                MessageUtil.parse("<i:false><gray>Shift+RMB on a structure to inspect</gray>"),
-                MessageUtil.parse("<i:false><gray>its stress, degradation, and integrity.</gray>"),
-                MessageUtil.parse(""),
-                MessageUtil.parse("<i:false><dark_gray>Currently supports: Ender Chest</dark_gray>")
-        ));
-
-        meta.getPersistentDataContainer().set(KEY, PersistentDataType.BYTE, (byte) 1);
-        });
+        ItemStack result = createItem();
 
         Bukkit.removeRecipe(RECIPE_KEY);
 
@@ -70,20 +79,7 @@ public class StructureIntegrityCraftListener implements Listener {
         if (!sr.getKey().equals(RECIPE_KEY)) return;
 
         CraftingInventory inv = e.getInventory();
-        ItemStack result = new ItemStack(Material.SPYGLASS);
-        result.editMeta(meta -> {
-
-        meta.displayName(MessageUtil.parse("<i:false><white>Structure Integrity Indicator*</white>"));
-
-        meta.lore(List.of(
-                MessageUtil.parse("<i:false><gray>Shift+RMB on a structure to inspect</gray>"),
-                MessageUtil.parse("<i:false><gray>its stress, degradation, and integrity.</gray>"),
-                MessageUtil.parse(""),
-                MessageUtil.parse("<i:false><dark_gray>Currently supports: Ender Chest</dark_gray>")
-        ));
-
-        meta.getPersistentDataContainer().set(KEY, PersistentDataType.BYTE, (byte) 1);
-        });
+        ItemStack result = createItem();
         inv.setResult(result);
     }
 

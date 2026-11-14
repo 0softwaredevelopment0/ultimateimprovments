@@ -259,6 +259,7 @@ final class ConfigRules {
             bool("features.entitylocator.enabled"),
             integer("features.entitylocator.scan_radius", 1, 1000),
             integer("features.entitylocator.interval_ticks", 1, 72000),
+            integer("features.mobfinder.danger_threshold", 0, 1000, "Порог враждебных мобов для предупреждения Mob Finder"),
             bool("features.exp_bottle_upgrade.enabled"),
             integer("features.exp_bottle_upgrade.max_multiplier", 1, 1000000, "Макс. множитель пузырька опыта"),
             integer("features.exp_bottle_upgrade.anvil_cost_amount", 0, 100, "Стоимость крафта в наковальне (уровни)"),
@@ -327,8 +328,6 @@ final class ConfigRules {
             bool("features.leash.hard_stop"),
             bool("features.container_trigger.enabled"),
             integer("features.container_trigger.interval_ticks", 1, 200, "Интервал проверки контейнера (тики)"),
-            bool("features.waypoint.enabled"),
-            integer("features.waypoint.interval_ticks", 1, 72000),
 
             bool("brand_spoof.enabled"),
             notBlank("brand_spoof.custom_brand", 64),

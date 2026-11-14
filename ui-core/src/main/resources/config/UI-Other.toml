@@ -352,9 +352,10 @@ enabled = true
 # Radius in blocks.
 # Default: 12
 scan_radius = 12
-# Interval in ticks (20 ticks = 1 second).
-# Default: 20
-interval_ticks = 20
+# Interval in ticks (20 ticks = 1 second). The locator only plays a note
+# sound and a dust trail, so a short interval keeps the feedback smooth.
+# Default: 10
+interval_ticks = 10
 
 # exp bottle upgrade section.
 [features.exp_bottle_upgrade]
@@ -708,13 +709,14 @@ interval_ticks = 1
 triggers = []
 
 # waypoint section.
-[features.waypoint]
-# Master switch (true = feature on).
-# Default: true
-enabled = true
-# Interval in ticks (20 ticks = 1 second).
-# Default: 200
-interval_ticks = 200
+# Removed: the Waypoint module was an empty stub (a timer that did nothing).
+# Client-side waypoint ranges live in [units.1] / [units.2] instead.
+
+# mobfinder section.
+[features.mobfinder]
+# How many hostile mobs in the scanned chunk turn the Mob Finder report red.
+# Default: 8
+danger_threshold = 8
 
 # Server brand (mod name) shown in the client's F3 screen.
 [brand_spoof]

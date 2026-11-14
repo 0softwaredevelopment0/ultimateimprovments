@@ -1,6 +1,7 @@
 package com.ultimateimprovments.mechanics.features.scanner;
 
-import com.ultimateimprovments.core.Keys;
+import com.ultimateimprovments.core.Keys;
+import com.ultimateimprovments.core.Main;
 import com.ultimateimprovments.util.Materials;
 import com.ultimateimprovments.util.MessageUtil;
 import net.kyori.adventure.text.Component;
@@ -153,39 +154,79 @@ public class MetalDetectorListener implements Listener {
     // ========================================================================
     // METAL DETECTOR LOGIC
     // ========================================================================
-    private void handleMetalDetector(Player player) {
-        Location playerLoc = player.getLocation();
-        int pX = playerLoc.getBlockX();
-        int pY = playerLoc.getBlockY();
-        int pZ = playerLoc.getBlockZ();
-
-        // Results
-        List<MetalResult> foundBlocks = new ArrayList<>();
-        List<MetalResult> foundItems = new ArrayList<>();
-        List<MetalResult> foundEntities = new ArrayList<>();
-
-        // =========================
-        // 1. SCAN BLOCKS
-        // =========================
-        int minY = Math.max(player.getWorld().getMinHeight(), pY - SCAN_RADIUS);
-        int maxY = Math.min(player.getWorld().getMaxHeight(), pY + SCAN_RADIUS);
-
-        for (int x = pX - SCAN_RADIUS; x <= pX + SCAN_RADIUS; x++) {
-            for (int y = minY; y <= maxY; y++) {
-                for (int z = pZ - SCAN_RADIUS; z <= pZ + SCAN_RADIUS; z++) {
-                    Block block = player.getWorld().getBlockAt(x, y, z);
-                    if (METAL_BLOCKS.contains(block.getType())) {
-                        double dist = playerLoc.distanceSquared(block.getLocation().add(0.5, 0.5, 0.5));
-                        if (dist <= SCAN_RADIUS * SCAN_RADIUS) {
-                            foundBlocks.add(new MetalResult(block.getType(), block.getLocation(), Math.sqrt(dist)));
-                        }
-                    }
-                }
-            }
-        }
-
-        // =========================
-        // 2. SCAN ITEMS ON GROUND
+    /** Blocks read per server tick while scanning (33^3 = ~36 000 blocks). */
+    private static final int SCAN_BUDGET_PER_TICK = 3000;
+    /** How far the player may move before the running scan is abandoned. */
+    private static final double MAX_DRIFT = 8.0;
+
+    private void handleMetalDetector(Player player) {
+        final Location playerLoc = player.getLocation().clone();
+        final org.bukkit.World world = player.getWorld();
+        final int pX = playerLoc.getBlockX();
+        final int pY = playerLoc.getBlockY();
+        final int pZ = playerLoc.getBlockZ();
+        final int minY = Math.max(world.getMinHeight(), pY - SCAN_RADIUS);
+        final int maxY = Math.min(world.getMaxHeight() - 1, pY + SCAN_RADIUS);
+        final int sizeX = SCAN_RADIUS * 2 + 1;
+        final int sizeZ = SCAN_RADIUS * 2 + 1;
+        final int sizeY = maxY - minY + 1;
+        final long total = (long) sizeX * sizeY * sizeZ;
+        final double radiusSq = (double) SCAN_RADIUS * SCAN_RADIUS;
+        final List<MetalResult> foundBlocks = new ArrayList<>();
+        final UUID uid = player.getUniqueId();
+
+        player.sendActionBar(MessageUtil.parse("<gray>🔍 Сканирование металла...</gray>"));
+
+        // The block sweep is spread over several ticks: the old build read the
+        // whole 33x33x33 volume in one tick and stuttered the server.
+        new org.bukkit.scheduler.BukkitRunnable() {
+            private long cursor = 0;
+
+            @Override
+            public void run() {
+                Player online = org.bukkit.Bukkit.getPlayer(uid);
+                if (online == null || !online.isOnline()) {
+                    cancel();
+                    return;
+                }
+                if (online.getLocation().distanceSquared(playerLoc) > MAX_DRIFT * MAX_DRIFT) {
+                    online.sendActionBar(MessageUtil.parse("<red>❌ Скан прерван: вы отошли слишком далеко.</red>"));
+                    cancel();
+                    return;
+                }
+
+                int budget = SCAN_BUDGET_PER_TICK;
+                while (cursor < total && budget-- > 0) {
+                    long index = cursor++;
+                    int iz = (int) (index % sizeZ);
+                    long rest = index / sizeZ;
+                    int ix = (int) (rest % sizeX);
+                    int iy = (int) (rest / sizeX);
+
+                    Block block = world.getBlockAt(pX - SCAN_RADIUS + ix, minY + iy, pZ - SCAN_RADIUS + iz);
+                    if (!METAL_BLOCKS.contains(block.getType())) continue;
+
+                    double distSq = playerLoc.distanceSquared(block.getLocation().add(0.5, 0.5, 0.5));
+                    if (distSq <= radiusSq) {
+                        foundBlocks.add(new MetalResult(block.getType(), block.getLocation(), Math.sqrt(distSq)));
+                    }
+                }
+
+                if (cursor >= total) {
+                    cancel();
+                    finishMetalScan(online, playerLoc, foundBlocks);
+                }
+            }
+        }.runTaskTimer(Main.getInstance(), 0L, 1L);
+    }
+
+    /** Items, entities and the report after the block sweep has finished. */
+    private void finishMetalScan(Player player, Location playerLoc, List<MetalResult> foundBlocks) {
+        List<MetalResult> foundItems = new ArrayList<>();
+        List<MetalResult> foundEntities = new ArrayList<>();
+
+        // =========================
+        // 2. SCAN ITEMS ON GROUND
         // =========================
         for (Entity entity : player.getNearbyEntities(SCAN_RADIUS, SCAN_RADIUS, SCAN_RADIUS)) {
             if (!(entity instanceof Item itemEntity)) continue;
@@ -296,10 +337,8 @@ public class MetalDetectorListener implements Listener {
                         nearest.location.getBlockX() + ", " + nearest.location.getBlockY() + ", " +
                         nearest.location.getBlockZ() + "]</gray>"));
 
-                // Ping sound based on distance
-                float pitch = (float) Math.max(0.5f, 2.0f - (nearest.distance / SCAN_RADIUS) * 1.5f);
-                player.playSound(player.getLocation(), org.bukkit.Sound.BLOCK_NOTE_BLOCK_BIT, 0.5f, pitch);
-                player.playSound(player.getLocation(), org.bukkit.Sound.BLOCK_NOTE_BLOCK_HAT, 0.3f, pitch * 0.8f);
+                // Signal: a short beep series, faster and higher when closer
+                playDistanceSignal(player, nearest.distance);
             }
 
             if (!foundBlocks.isEmpty()) {
@@ -377,13 +416,30 @@ public class MetalDetectorListener implements Listener {
         return formatMaterial(stack.getType());
     }
 
-    private static String distanceColor(double dist) {
-        double ratio = dist / SCAN_RADIUS;
-        if (ratio <= 0.25) return "<green>";
-        if (ratio <= 0.5) return "<#66FF00>";
-        if (ratio <= 0.75) return "<yellow>";
-        return "<red>";
-    }
+    private static String distanceColor(double dist) {
+        double ratio = dist / SCAN_RADIUS;
+        if (ratio <= 0.25) return "<green>";
+        if (ratio <= 0.5) return "<#66FF00>";
+        if (ratio <= 0.75) return "<yellow>";
+        return "<red>";
+    }
+
+    /**
+     * Metal detectors click faster the closer the target is: four beeps whose
+     * spacing and pitch are derived from the distance to the nearest find.
+     */
+    private static void playDistanceSignal(Player player, double distance) {
+        double ratio = Math.min(1.0, distance / SCAN_RADIUS);
+        long spacing = (long) (2 + ratio * 8); // 2 ticks (close) .. 10 ticks (far)
+        float pitch = (float) (2.0 - ratio * 1.2); // 2.0 (close) .. 0.8 (far)
+
+        for (int i = 0; i < 4; i++) {
+            org.bukkit.Bukkit.getScheduler().runTaskLater(Main.getInstance(),
+                    () -> player.playSound(player.getLocation(),
+                            org.bukkit.Sound.BLOCK_NOTE_BLOCK_BIT, 0.5f, pitch),
+                    i * spacing);
+        }
+    }
 
     // ========================================================================
     // RESULT DATA CLASS

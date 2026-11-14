@@ -18,7 +18,7 @@ import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 
 /**
- * Listener for the Structure Integrity Indicator item.
+ * Listener for the Structure Indicator item.
  * Shift+RMB on an ender chest shows structure data.
  */
 public class StructureIntegrityListener implements Listener {

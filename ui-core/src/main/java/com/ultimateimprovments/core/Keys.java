@@ -15,7 +15,6 @@ public class Keys {
     public static NamespacedKey LOCATOR;
 
     // Auth GUI items
-    public static NamespacedKey AUTH_GUI;
     public static NamespacedKey CHGDIM_GUI;
     public static NamespacedKey DOSIMETER;
 
@@ -30,6 +29,8 @@ public class Keys {
     public static NamespacedKey ORE_FINDER;
     public static NamespacedKey MOB_FINDER;
     public static NamespacedKey RADAR;
+    // Current Portable Radar mode ("all" / "hostile" / "players"), stored on the item
+    public static NamespacedKey RADAR_MODE;
 
     // Materials
     public static NamespacedKey LEAD_INGOT;
@@ -54,9 +55,6 @@ public class Keys {
 
     // Multimeter
     public static NamespacedKey MULTIMETER;
-
-    // Chunk Loader
-    public static NamespacedKey CHUNK_LOADER;
 
     // Remote Detonator (item tag + the bound TNT block, encoded "x;y;z;world")
     public static NamespacedKey REMOTE_DETONATOR;
@@ -97,6 +95,7 @@ public class Keys {
         ORE_FINDER = new NamespacedKey(plugin, "isOreFinder");
         MOB_FINDER = new NamespacedKey(plugin, "isMobFinder");
         RADAR = new NamespacedKey(plugin, "isRadar");
+        RADAR_MODE = new NamespacedKey(plugin, "radar_mode");
         METAL_DETECTOR = new NamespacedKey(plugin, "isMetalDetector");
         LEAD_INGOT = new NamespacedKey(plugin, "isLeadIngot");
         DOSIMETER = new NamespacedKey(plugin, "isDosimeter");
@@ -107,7 +106,6 @@ public class Keys {
         CONCRETE_BUCKET = new NamespacedKey(plugin, "is_concrete_bucket");
         CHESTPLATE_FLIGHT = new NamespacedKey(plugin, "chestplate_flight");
         NETHERITE_UPGRADE = new NamespacedKey(plugin, "netherite_upgrade");
-        AUTH_GUI = new NamespacedKey(plugin, "auth_gui");
         CHGDIM_GUI = new NamespacedKey(plugin, "chgdim_gui");
 
         OMNISCANNER = new NamespacedKey(plugin, "omniscanner");
@@ -119,7 +117,6 @@ public class Keys {
         GUI_PROTECTED = new NamespacedKey(plugin, "gui_protected");
 
         MULTIMETER = new NamespacedKey(plugin, "is_multimeter");
-        CHUNK_LOADER = new NamespacedKey(plugin, "is_chunk_loader");
 
         REMOTE_DETONATOR = new NamespacedKey(plugin, "is_remote_detonator");
         DETONATOR_TARGET = new NamespacedKey(plugin, "remote_detonator_target");

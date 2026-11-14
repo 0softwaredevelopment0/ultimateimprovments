@@ -55,7 +55,7 @@
 | Antimatter Flask | Devastating explosion |
 | Multimeter, Metal/Ore/Entity Finders | Scanning tools |
 | Hazmat Suit, Lead Ingot, Dosimeter | Radiation protection and measurement |
-| Concrete Bucket, Structure Integrity Indicator | Utility |
+| Concrete Bucket, Structure Indicator | Utility |
 
 ### Custom Enchantments (18)
 Attack AoE, Auto Smelt, Vein Miner, TreeCapitator, Flight, Levitation, Magnet, Igniting, Lava Walker, Container Stealing, Item Stealing, Repairing, Self-Destruct, Degradation, Blunting, Vulnerability, Disappearance, AoE — mostly up to level 255, with gameplay caps on the strongest ones (e.g. AoE 8, Attack AoE 10, Magnet 16, Lava Walker 16). Curses included.

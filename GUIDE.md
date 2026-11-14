@@ -240,15 +240,18 @@ Crafter). Recipes come from the bundled datapack.
 | **Photon Cannon** | Long-range projectile weapon. |
 | **Electro Shoker** | Close-combat projectile weapon. |
 | **Antimatter Flask** | Explosive item — devastating blast. |
-| **Multimeter** | **SHIFT+RMB** reads block/energy parameters: cables, batteries, junctions, generators, reactors, particle-accelerator blocks and structure integrity. A plain RMB keeps the vanilla block interaction. Blocks with nothing to read answer with the `[METER] Can't measure parameters of this block.` error. |
-| **Metal Detector / Ore Finder / Mob Finder / Entity Locator** | Scanning tools. |
-| **Health Meter** | Shows mob health. |
-| **Portable Radar** | Nearby entity radar. |
+| **Multimeter** | **SHIFT+RMB** reads energy parameters: cables, batteries, junctions, generators, reactors and particle-accelerator blocks. A plain RMB keeps the vanilla block interaction. Blocks with nothing to read answer with the `[METER] Can't measure parameters of this block.` error. |
+| **Metal Detector** | RMB sweeps a 33×33×33 volume for metal blocks, dropped metal items and mobs carrying metal, in several ticks (no lag spike). The beep series gets faster and higher the closer the nearest find is. |
+| **Ore Finder** | RMB counts ores in the current chunk column; the scan runs asynchronously. |
+| **Mob Finder** | RMB counts the entities of the current chunk by type, lists creature spawners and warns (⚠) when hostile mobs reach the configured threshold. |
+| **Entity Locator** | Passive: held in either hand it plays a note whose pitch rises with proximity and draws a short dust trail toward the nearest entity. No chat spam. |
+| **Health Meter** | Target card: HP bar, armor, attack damage, knockback resistance, active effects and equipment. |
+| **Portable Radar** | RMB reports the nearest target with coordinates, direction and distance bar and makes it glow for 5 s. **SHIFT+RMB** cycles the filter: all → hostile → players. |
 | **Lead Ingot** | Radiation-crafting material (cannot be un-crafted back); used for the Hazmat Suit and the Dosimeter. |
 | **Hazmat Suit** (4 leather pieces) | Radiation protection: −20% per piece, −80% for the full set. |
 | **Dosimeter** | Shows the radiation level in the actionbar (emerald is the crafting sensor). |
 | **Concrete Bucket** | Place concrete instantly. |
-| **Structure Integrity Indicator** | Shows structure integrity. |
+| **Structure Indicator** | **SHIFT+RMB** on a structure reads its stress, degradation and integrity (sculk-sensor base). This is the structure tool; the Multimeter no longer reads structures. |
 | **Particle Engine / Injector / Ring / Speed Sensor** | Particle accelerator components. |
 | **Chunk Loader** | Keep chunks loaded (consumes an XP bottle). |
 | **Ender Chest (Портативное хранилище)** | Portable storage. |
